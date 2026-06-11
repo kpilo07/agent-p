@@ -1,0 +1,59 @@
+# ===== Go / backend =====
+# Binario compilado (Makefile: BINARY := agent-p)
+/agent-p
+# Otros binarios sueltos
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Tests y cobertura
+*.test
+*.out
+coverage.*
+# Workspace de Go
+go.work
+go.work.sum
+
+# ===== Base de datos (SQLite local) =====
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ===== Frontend / web =====
+# Dependencias
+web/node_modules/
+node_modules/
+.pnpm-store/
+# Build embebido (se regenera con `pnpm build`)
+web/dist/
+# Caché de herramientas
+web/.rspack-cache/
+web/.cache/
+.turbo/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Entorno / secretos =====
+.env
+.env.*
+!.env.example
+
+# ===== Sistema operativo =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Editores / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
