@@ -26,6 +26,27 @@ export interface FsListing {
   entries: FsEntry[];
 }
 
+/** Nodo del árbol del repositorio (Mapa Táctico). */
+export interface TreeNode {
+  name: string;
+  path: string; // relativo a la raíz del repo, separador '/'
+  dir: boolean;
+  children?: TreeNode[];
+}
+
+export interface FileDiff {
+  path: string;
+  diff: string;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+  truncated: boolean;
+  binary: boolean;
+}
+
 export const api = {
   listProjects: () => request<Project[]>('/api/projects'),
 
@@ -45,6 +66,14 @@ export const api = {
     request<Project>(`/api/projects/${id}/stop`, { method: 'POST' }),
 
   getDiff: (id: string) => request<GitSnapshot>(`/api/projects/${id}/diff`),
+
+  getTree: (id: string) => request<TreeNode>(`/api/projects/${id}/tree`),
+
+  getFileDiff: (id: string, path: string) =>
+    request<FileDiff>(`/api/projects/${id}/file-diff?path=${encodeURIComponent(path)}`),
+
+  getFile: (id: string, path: string) =>
+    request<FileContent>(`/api/projects/${id}/file?path=${encodeURIComponent(path)}`),
 
   listTerminals: (id: string) => request<TermInfo[]>(`/api/projects/${id}/terminals`),
 

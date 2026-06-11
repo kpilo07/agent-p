@@ -33,7 +33,7 @@ export function ModalShell({ z = 'z-[800]', escapeDisabled = false, onClose, chi
 
   return (
     <div
-      className={`fixed inset-0 ${z} flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm ${
+      className={`fixed inset-0 ${z} flex items-center justify-center bg-black/70 p-6 ${
         closing ? 'modal-backdrop-out' : 'modal-backdrop-in'
       }`}
       onClick={requestClose}

@@ -97,6 +97,36 @@ export const IconGitBranch = (p: IconProps) => (
   </Svg>
 );
 
+export const IconFolderOpen = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 19 2.8 9.8A1.5 1.5 0 0 1 4.25 8H19a2 2 0 0 1 1.94 2.5L19.5 16.5A2 2 0 0 1 17.56 18H5Z" />
+    <path d="M5 8V6a2 2 0 0 1 2-2h3.2a2 2 0 0 1 1.4.6L13 6h5a2 2 0 0 1 2 2" />
+  </Svg>
+);
+
+export const IconFile = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+    <path d="M14 3v5h5" />
+  </Svg>
+);
+
+export const IconSearch = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </Svg>
+);
+
+export const IconTrash = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16" />
+    <path d="M10 11v6M14 11v6" />
+    <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+    <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+  </Svg>
+);
+
 export const IconBell = (p: IconProps) => (
   <Svg {...p}>
     <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9Z" />

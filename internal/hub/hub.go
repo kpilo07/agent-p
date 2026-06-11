@@ -29,6 +29,7 @@ const (
 	EventOutput       = "output"        // datos de la terminal (base64)
 	EventReplay       = "replay"        // buffer histórico al hacer attach
 	EventGitUpdate    = "git_update"    // snapshot de git diff de un proyecto
+	EventFSChange     = "fs_change"     // un archivo del proyecto cambió en disco
 	EventNotification = "notification"  // alerta global (toast en la UI)
 	EventSessionState = "session_state" // un PTY arrancó o terminó
 )
@@ -39,6 +40,11 @@ const (
 	CmdDetach = "detach"
 	CmdInput  = "input"
 	CmdResize = "resize"
+	// Suscripción a los eventos del proyecto (git_update, fs_change…) SIN
+	// terminal de por medio: la usa la UI cuando la consola no está montada
+	// (Modo Mapa Táctico).
+	CmdSubscribe   = "subscribe"
+	CmdUnsubscribe = "unsubscribe"
 )
 
 // Event es un mensaje saliente hacia la UI.

@@ -47,6 +47,9 @@ export interface Toast {
 
 export type WsStatus = 'connecting' | 'open' | 'closed';
 
+/** Modo del panel derecho: diff general (console) o explorador (map). */
+export type ViewMode = 'console' | 'map';
+
 /** ID de la terminal principal (la del agente de IA). */
 export const AGENT_TERM_ID = 'agent';
 
@@ -58,7 +61,7 @@ export interface TermInfo {
 
 // Eventos del servidor (espejo de internal/hub en Go).
 export interface ServerEvent {
-  type: 'output' | 'replay' | 'git_update' | 'notification' | 'session_state';
+  type: 'output' | 'replay' | 'git_update' | 'fs_change' | 'notification' | 'session_state';
   projectId?: string;
   termId?: string;
   payload?: unknown;
@@ -86,6 +89,22 @@ interface AppState {
   /** Terminal en foco dentro del proyecto enfocado. */
   focusedTermId: string;
 
+  // ── Mapa Táctico ──
+  /** Modo del panel derecho: 'console' (diff general) | 'map' (explorador). */
+  viewMode: ViewMode;
+  /** Carpetas expandidas del explorador, por proyecto (paths relativos). */
+  expandedDirs: Record<string, string[]>;
+  /** Alertas de archivos recién modificados (fs_change): path → timestamp. */
+  fileAlerts: Record<string, Record<string, number>>;
+  /** Contador que fuerza la recarga del árbol cuando cambia la estructura. */
+  treeVersion: Record<string, number>;
+  /** Archivo seleccionado para el visor (null = cerrado). */
+  selectedFile: string | null;
+  /** Modal de la consola (Modo Mapa: la terminal es una herramienta más). */
+  terminalModalOpen: boolean;
+  /** Buscador de archivos (command palette). */
+  searchOpen: boolean;
+
   // ── Acciones ──
   setProjects: (projects: Project[]) => void;
   upsertProject: (project: Project) => void;
@@ -98,6 +117,12 @@ interface AppState {
   setDiffModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
+  setViewMode: (mode: ViewMode) => void;
+  toggleDir: (projectId: string, path: string) => void;
+  clearFileAlert: (projectId: string, path: string) => void;
+  setSelectedFile: (path: string | null) => void;
+  setTerminalModalOpen: (open: boolean) => void;
+  setSearchOpen: (open: boolean) => void;
   pushToast: (toast: Omit<Toast, 'id'>) => void;
   dismissToast: (id: number) => void;
   /** Reductor central de eventos WebSocket del backend. */
@@ -108,6 +133,18 @@ interface AppState {
 
 const TOAST_TTL_MS = 6000;
 let toastSeq = 0;
+
+// Tras este tiempo sin nuevos cambios, el parpadeo del archivo se apaga solo.
+const FILE_ALERT_TTL_MS = 15_000;
+
+const VIEW_MODE_KEY = 'agent-p:viewMode';
+
+// Por defecto Modo Mapa; el switch de la barra de estado lo apaga hacia
+// Modo Consola y la elección se recuerda entre sesiones.
+function initialViewMode(): ViewMode {
+  const saved = localStorage.getItem(VIEW_MODE_KEY);
+  return saved === 'console' ? 'console' : 'map';
+}
 
 export const useStore = create<AppState>((set, get) => ({
   projects: [],
@@ -121,6 +158,13 @@ export const useStore = create<AppState>((set, get) => ({
   diffModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
+  viewMode: initialViewMode(),
+  expandedDirs: {},
+  fileAlerts: {},
+  treeVersion: {},
+  selectedFile: null,
+  terminalModalOpen: false,
+  searchOpen: false,
 
   setProjects: (projects) =>
     set((s) => ({
@@ -178,6 +222,34 @@ export const useStore = create<AppState>((set, get) => ({
 
   focusTerm: (focusedTermId) => set({ focusedTermId }),
 
+  setViewMode: (viewMode) => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    // Al cambiar de modo, la modal de terminal no debe quedar "armada":
+    // sin esto, volver al Modo Mapa la reabriría sola.
+    set({ viewMode, terminalModalOpen: false });
+  },
+
+  toggleDir: (projectId, path) =>
+    set((s) => {
+      const open = s.expandedDirs[projectId] ?? [];
+      const next = open.includes(path) ? open.filter((p) => p !== path) : [...open, path];
+      return { expandedDirs: { ...s.expandedDirs, [projectId]: next } };
+    }),
+
+  clearFileAlert: (projectId, path) =>
+    set((s) => {
+      const alerts = s.fileAlerts[projectId];
+      if (!alerts?.[path]) return s;
+      const { [path]: _, ...rest } = alerts;
+      return { fileAlerts: { ...s.fileAlerts, [projectId]: rest } };
+    }),
+
+  setSelectedFile: (selectedFile) => set({ selectedFile }),
+
+  setTerminalModalOpen: (terminalModalOpen) => set({ terminalModalOpen }),
+
+  setSearchOpen: (searchOpen) => set({ searchOpen }),
+
   pushToast: (toast) => {
     const id = ++toastSeq;
     set((s) => ({ toasts: [...s.toasts, { ...toast, id }] }));
@@ -201,6 +273,35 @@ export const useStore = create<AppState>((set, get) => ({
         // el evento global 'notification' que emite el backend.
         if (isBackground && !snap.initial) {
           set((s) => ({ unread: { ...s.unread, [projectId]: (s.unread[projectId] ?? 0) + 1 } }));
+        }
+        break;
+      }
+
+      case 'fs_change': {
+        if (!projectId) return;
+        const { path, op } = evt.payload as { path: string; op: string };
+        const stamp = Date.now();
+        set((s) => ({
+          fileAlerts: {
+            ...s.fileAlerts,
+            [projectId]: { ...s.fileAlerts[projectId], [path]: stamp },
+          },
+        }));
+        // El parpadeo expira solo si nadie abre el archivo; un cambio más
+        // reciente (stamp distinto) reinicia el plazo.
+        setTimeout(() => {
+          if (get().fileAlerts[projectId]?.[path] === stamp) {
+            get().clearFileAlert(projectId, path);
+          }
+        }, FILE_ALERT_TTL_MS);
+        // Crear/borrar/renombrar altera la estructura: el árbol se recarga.
+        if (op !== 'write') {
+          set((s) => ({
+            treeVersion: {
+              ...s.treeVersion,
+              [projectId]: (s.treeVersion[projectId] ?? 0) + 1,
+            },
+          }));
         }
         break;
       }

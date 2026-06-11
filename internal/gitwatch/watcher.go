@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"log/slog"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -202,6 +204,46 @@ func Take(ctx context.Context, path string) (*Snapshot, error) {
 	return snap, nil
 }
 
+// TakeFile devuelve el diff unificado de UN archivo del repositorio. Los
+// archivos sin seguimiento (untracked) no aparecen en `git diff`, así que se
+// comparan contra /dev/null para que también tengan diff textual en la UI.
+func TakeFile(ctx context.Context, dir, file string) (string, error) {
+	out, err := runGit(ctx, dir, "diff", "HEAD", "--", file)
+	if err != nil {
+		// Repos sin commits aún no tienen HEAD: cae al diff del index.
+		out, err = runGit(ctx, dir, "diff", "--", file)
+		if err != nil {
+			return "", err
+		}
+	}
+	if len(bytes.TrimSpace(out)) > 0 {
+		return string(out), nil
+	}
+
+	status, _ := runGit(ctx, dir, "status", "--porcelain", "--", file)
+	if strings.HasPrefix(strings.TrimSpace(string(status)), "??") {
+		// `--no-index` sale con código 1 cuando HAY diferencias: no es error.
+		if nout, err := runGitDiffOK(ctx, dir, "diff", "--no-index", "--", os.DevNull, file); err == nil {
+			return string(nout), nil
+		}
+	}
+	return string(out), nil
+}
+
+// runGitDiffOK ejecuta git tolerando el exit code 1 (convención de `git diff`
+// para "hay diferencias").
+func runGitDiffOK(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	out, err := runGit(ctx, dir, args...)
+	var ge *GitError
+	if errors.As(err, &ge) {
+		var xe *exec.ExitError
+		if errors.As(ge.Err, &xe) && xe.ExitCode() == 1 {
+			return out, nil
+		}
+	}
+	return out, err
+}
+
 func parseNumstat(out []byte) map[string][2]int {
 	stats := make(map[string][2]int)
 	for line := range strings.Lines(strings.TrimRight(string(out), "\n")) {
@@ -225,7 +267,9 @@ func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, &GitError{Args: args, Stderr: stderr.String(), Err: err}
+		// Devuelve también stdout: `git diff --no-index` produce salida útil
+		// con exit code 1 y el caller decide si lo tolera.
+		return stdout.Bytes(), &GitError{Args: args, Stderr: stderr.String(), Err: err}
 	}
 	return stdout.Bytes(), nil
 }

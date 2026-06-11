@@ -11,7 +11,6 @@ export function AgentLogo() {
       width={SIZE}
       height={SIZE}
       shapeRendering="crispEdges"
-      className="drop-shadow-[0_0_24px_rgba(0,168,168,0.22)]"
       aria-hidden="true"
     >
       <path d="M6,2 h4 v1 h-4 z" fill="#5C341A" />

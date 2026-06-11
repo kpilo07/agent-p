@@ -1,30 +1,45 @@
 // Barra de herramientas flotante: minimalista y transparente — solo iconos
-// fantasma a la derecha, centrados verticalmente. Panel de proyectos, review
-// de cambios, nueva terminal y salto rápido entre proyectos activos.
+// fantasma a la derecha, centrados verticalmente. Panel de proyectos,
+// herramientas del proyecto en foco (review/nueva terminal) y el grupo de
+// consolas abiertas (agente + shells). El cambio de proyecto vive en el menú
+// de la StatusBar (esquina inferior derecha).
 import { api } from '../lib/api';
-import { openProject } from '../lib/projects';
-import { useStore } from '../store/store';
-import { IconFolder, IconGitBranch, IconTerminal } from './icons';
+import { AGENT_TERM_ID, useStore, type TermInfo } from '../store/store';
+import { IconFolder, IconGitBranch, IconPlus, IconSearch, IconTerminal } from './icons';
 
 const ghostBtn =
   'relative flex items-center justify-center rounded-lg p-2 text-muted transition-all duration-200 hover:bg-[var(--hover-accent)] hover:text-gold';
 
+// Referencia estable para el selector (evita re-renders en bucle).
+const NO_TERMS: TermInfo[] = [];
+
 export function Toolbar() {
-  const projects = useStore((s) => s.projects);
   const focusedId = useStore((s) => s.focusedId);
-  const activeIds = useStore((s) => s.activeIds);
   const unread = useStore((s) => s.unread);
+  const viewMode = useStore((s) => s.viewMode);
+  const focusedTermId = useStore((s) => s.focusedTermId);
   const snap = useStore((s) => (s.focusedId ? s.git[s.focusedId] : undefined));
+  const terminals = useStore((s) =>
+    s.focusedId ? (s.terminals[s.focusedId] ?? NO_TERMS) : NO_TERMS,
+  );
 
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
-  const activeProjects = projects.filter((p) => activeIds.includes(p.id));
   const dirty = (snap?.files?.length ?? 0) > 0;
+
+  // Clic en una consola del grupo: pasa a ser LA terminal visible — en el
+  // workspace (Modo Consola) o en su modal (Modo Mapa).
+  const openTerm = (termId: string) => {
+    useStore.getState().focusTerm(termId);
+    if (viewMode === 'map') useStore.getState().setTerminalModalOpen(true);
+  };
 
   const newTerminal = async () => {
     if (!focusedId) return;
     try {
-      // El session_state del backend añade la tile al mosaico.
-      await api.createTerminal(focusedId);
+      // El session_state del backend la añade al grupo; aquí la enfocamos
+      // para que aparezca de inmediato.
+      const t = await api.createTerminal(focusedId);
+      openTerm(t.id);
     } catch (err) {
       useStore.getState().pushToast({
         level: 'error',
@@ -35,7 +50,7 @@ export function Toolbar() {
   };
 
   return (
-    <div className="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-xl border border-[var(--border-secondary)] bg-[rgba(8,10,20,0.45)] p-1.5 backdrop-blur-md">
+    <div className="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-lg border border-[var(--border-primary)] bg-[rgba(0,0,0,0.8)] p-1.5">
       {/* Panel de proyectos (el alta vive dentro del panel) */}
       <button
         className={ghostBtn}
@@ -52,6 +67,15 @@ export function Toolbar() {
 
       {focusedId && (
         <>
+          {/* Buscador de archivos del repositorio (Ctrl/⌘+K) */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setSearchOpen(true)}
+            title="Buscar archivos · Ctrl+K"
+          >
+            <IconSearch className="h-4.5 w-4.5" />
+          </button>
+
           {/* Review de cambios (git diff) */}
           <button
             className={ghostBtn}
@@ -68,41 +92,32 @@ export function Toolbar() {
             )}
           </button>
 
-          {/* Nueva terminal en el mosaico */}
+          {/* Nueva consola en el grupo */}
           <button className={ghostBtn} onClick={newTerminal} title="Nueva terminal">
-            <IconTerminal className="h-4.5 w-4.5" />
+            <IconPlus className="h-4.5 w-4.5" />
           </button>
-        </>
-      )}
 
-      {/* Acceso rápido a los proyectos activos */}
-      {activeProjects.length > 0 && (
-        <>
-          <span className="my-1 h-px w-4 bg-[var(--border-secondary)]" />
-          {activeProjects.map((p) => {
-            const isFocused = p.id === focusedId;
-            const pending = unread[p.id] ?? 0;
-            return (
-              <button
-                key={p.id}
-                onClick={() => openProject(p.id)}
-                title={`${p.name}${pending ? ` · ${pending} eventos` : ''}`}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-lg font-mono text-[12px] font-bold transition-all duration-200 ${
-                  isFocused
-                    ? 'bg-[var(--hover-accent)] text-gold'
-                    : 'text-muted hover:bg-[var(--hover-accent)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {p.name.charAt(0).toUpperCase()}
-                <span className="absolute right-0.5 bottom-0.5 inline-block h-1.5 w-1.5 rounded-full bg-alert-green shadow-[0_0_4px_rgba(0,230,118,0.6)]" />
-                {pending > 0 && !isFocused && (
-                  <span className="notification-pulse notification-pulse--count absolute -top-1 -right-1">
-                    {pending > 9 ? '9+' : pending}
+          {/* Consolas abiertas, agrupadas */}
+          {terminals.length > 0 && (
+            <>
+              <span className="my-1 h-px w-4 bg-[var(--border-primary)]" />
+              {terminals.map((t, i) => (
+                <button
+                  key={t.id}
+                  className={`${ghostBtn} ${
+                    t.id === focusedTermId ? 'bg-[var(--hover-accent)] !text-gold' : ''
+                  }`}
+                  onClick={() => openTerm(t.id)}
+                  title={t.id === AGENT_TERM_ID ? `Agente · ${t.title}` : t.title}
+                >
+                  <IconTerminal className="h-4.5 w-4.5" />
+                  <span className="absolute right-0.5 -bottom-0.5 font-mono text-[8px] font-bold text-secondary">
+                    {t.id === AGENT_TERM_ID ? 'A' : i}
                   </span>
-                )}
-              </button>
-            );
-          })}
+                </button>
+              ))}
+            </>
+          )}
         </>
       )}
     </div>

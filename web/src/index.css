@@ -2,13 +2,6 @@
 
 /* ── Tipografía auto-hospedada (Vercel Geist, licencia OFL) ── */
 @font-face {
-  font-family: 'Geist Pixel';
-  src: url('./assets/fonts/GeistPixel-Square.woff2') format('woff2');
-  font-weight: 100 900; /* única pasada estática; el navegador sintetiza bold */
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Geist Mono';
   src: url('./assets/fonts/GeistMono-Regular.woff2') format('woff2');
   font-weight: 400;
@@ -24,55 +17,57 @@
 
 /* ═══════════════════════════════════════════════════════════════
    P-AGENT — Git Ops Command Center
-   Sistema de diseño OSIRIS (Dark Ops × Glassmorphism × Gold HUD)
+   Tema VERCEL: negro absoluto, minimalismo total. Superficies planas,
+   bordes de 1px en grises neutros, blanco como único acento principal
+   y color (teal/ámbar/rojo/verde) solo para señales de estado.
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── Core Palette ── */
-  --bg-void: #04040a;
-  --bg-primary: #06060c;
-  --bg-secondary: #0c0e1a;
-  --bg-tertiary: #121628;
-  --bg-panel: rgba(8, 10, 20, 0.88);
+  --bg-void: #000000;
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #111111;
+  --bg-panel: #0a0a0a;
 
-  /* ── Gold Accent ── */
-  --gold-primary: #d4af37;
-  --gold-light: #f0d060;
-  --gold-dim: #8b7325;
-  --gold-glow: rgba(212, 175, 55, 0.3);
+  /* ── Acento principal (blanco, ex-gold: los componentes lo heredan) ── */
+  --gold-primary: #ededed;
+  --gold-light: #ffffff;
+  --gold-dim: #8a8a8a;
+  --gold-glow: rgba(255, 255, 255, 0.08);
 
-  /* ── Cyan Intel Stream ── */
-  --cyan-primary: #00e5ff;
-  --cyan-dim: #006b7a;
-  --cyan-glow: rgba(0, 229, 255, 0.15);
+  /* ── Señal secundaria (teal Vercel) ── */
+  --cyan-primary: #50e3c2;
+  --cyan-dim: #2a7e6e;
+  --cyan-glow: rgba(80, 227, 194, 0.12);
 
   /* ── Alert Colors ── */
-  --alert-red: #ff3d3d;
-  --alert-orange: #ff9500;
-  --alert-green: #00e676;
+  --alert-red: #f85149;
+  --alert-orange: #f5a623;
+  --alert-green: #45d483;
 
-  /* ── Borders ── */
-  --border-primary: rgba(212, 175, 55, 0.15);
-  --border-secondary: rgba(212, 175, 55, 0.08);
-  --border-active: rgba(212, 175, 55, 0.4);
-  --border-cyan: rgba(0, 229, 255, 0.2);
+  /* ── Borders (grises neutros, sin tinte) ── */
+  --border-primary: #1f1f1f;
+  --border-secondary: #141414;
+  --border-active: #3d3d3d;
+  --border-cyan: rgba(80, 227, 194, 0.3);
 
   /* ── Text ── */
-  --text-primary: #e8e6e0;
-  --text-secondary: #9b978e;
-  --text-muted: #5c5a54;
-  --text-heading: #f5f0e0;
+  --text-primary: #ededed;
+  --text-secondary: #a1a1a1;
+  --text-muted: #6b6b6b;
+  --text-heading: #ffffff;
 
   /* ── Scrollbar / Hover ── */
-  --scrollbar-thumb: rgba(212, 175, 55, 0.2);
-  --scrollbar-thumb-hover: rgba(212, 175, 55, 0.4);
-  --hover-accent: rgba(212, 175, 55, 0.08);
+  --scrollbar-thumb: #2e2e2e;
+  --scrollbar-thumb-hover: #454545;
+  --hover-accent: rgba(255, 255, 255, 0.06);
 
   /* ── Fonts ── */
-  /* Geist Pixel para toda la UI; Geist Mono solo donde la rejilla de
-     caracteres es obligatoria (xterm), porque Pixel NO es monoespaciada. */
-  --font-hud: 'Geist Pixel', 'Courier New', monospace;
-  --font-body: 'Geist Pixel', -apple-system, sans-serif;
+  /* Geist Mono para labels, valores y código (sello Vercel); la pila de
+     sistema para el cuerpo. */
+  --font-hud: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --font-body: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-term: 'Geist Mono', 'JetBrains Mono', monospace;
 }
 
@@ -89,6 +84,20 @@
   --color-secondary: var(--text-secondary);
   --font-sans: var(--font-body);
   --font-mono: var(--font-hud);
+  /* Parpadeo sutil ámbar↔teal de los archivos recién modificados
+     (Mapa Táctico). Genera la utilidad `animate-file-blink`. */
+  --animate-file-blink: file-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes file-blink {
+  0%, 100% {
+    color: var(--alert-orange);
+    text-shadow: 0 0 10px rgba(245, 166, 35, 0.35);
+  }
+  50% {
+    color: var(--cyan-primary);
+    text-shadow: 0 0 10px rgba(80, 227, 194, 0.35);
+  }
 }
 
 /* ── Base ── */
@@ -112,45 +121,35 @@ html, body, #root {
 .styled-scrollbar { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 
 /* ═══════════════════════════════════════════════════════════════
-   GLASS PANELS
+   PANELS — superficies planas con borde de 1px (sin blur ni glow)
    ═══════════════════════════════════════════════════════════════ */
 .glass-panel {
   background: var(--bg-panel);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
   border: 1px solid var(--border-primary);
-  border-radius: 14px;
-  box-shadow:
-    0 4px 30px rgba(0, 0, 0, 0.5),
-    0 1px 0 rgba(212, 175, 55, 0.06) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.3) inset;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
+  transition: border-color 0.2s ease;
 }
 
-.glass-panel:hover { border-color: rgba(212, 175, 55, 0.22); }
+.glass-panel:hover { border-color: #2e2e2e; }
 
-/* Variante translúcida para la terminal: 70% de transparencia (30% de
-   opacidad) y blur suave para que el fondo de partículas se vea con nitidez
-   sin sacrificar la legibilidad del texto. */
+/* La terminal comparte la misma superficie plana. */
 .glass-panel--terminal {
-  background: rgba(6, 7, 14, 0.3);
-  backdrop-filter: blur(5px) saturate(1.15);
-  -webkit-backdrop-filter: blur(5px) saturate(1.15);
+  background: var(--bg-secondary);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HUD TEXT SYSTEM
+   HUD TEXT SYSTEM — micro-labels en Geist Mono
    ═══════════════════════════════════════════════════════════════ */
 .hud-text {
   font-family: var(--font-hud);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .hud-label {
   font-family: var(--font-hud);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -159,7 +158,7 @@ html, body, #root {
   font-family: var(--font-hud);
   font-size: 11px;
   font-weight: 600;
-  color: var(--gold-primary);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -173,22 +172,11 @@ html, body, #root {
   justify-content: space-between;
   padding: 0 20px;
   height: 48px;
-  background: linear-gradient(180deg, rgba(12, 14, 26, 0.96) 0%, rgba(6, 6, 12, 0.98) 100%);
-  backdrop-filter: blur(20px) saturate(1.2);
-  box-shadow: 0 1px 0 rgba(212, 175, 55, 0.08) inset, 0 4px 24px rgba(0, 0, 0, 0.5);
+  background: var(--bg-void);
+  border-bottom: 1px solid var(--border-primary);
   font-family: var(--font-hud);
   flex-shrink: 0;
   z-index: 50;
-}
-
-.gotham-command-bar::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--gold-dim) 15%, var(--gold-primary) 50%, var(--gold-dim) 85%, transparent 100%);
-  opacity: 0.4;
-  pointer-events: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -202,63 +190,47 @@ html, body, #root {
   gap: 16px;
   padding: 0 12px;
   height: 28px;
-  background: linear-gradient(0deg, rgba(12, 14, 26, 0.96) 0%, rgba(6, 6, 12, 0.92) 100%);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  box-shadow: 0 -1px 0 rgba(212, 175, 55, 0.08) inset, 0 -4px 24px rgba(0, 0, 0, 0.5);
+  background: var(--bg-void);
+  border-top: 1px solid var(--border-primary);
   font-family: var(--font-hud);
   flex-shrink: 0;
 }
 
-.gotham-status-bar::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--gold-dim) 15%, var(--gold-primary) 50%, var(--gold-dim) 85%, transparent 100%);
-  opacity: 0.4;
-  pointer-events: none;
-}
-
 /* ═══════════════════════════════════════════════════════════════
-   TACTICAL BUTTON
+   TACTICAL BUTTON — botones outline neutros (estilo Vercel)
    ═══════════════════════════════════════════════════════════════ */
 .btn-tactical {
   font-family: var(--font-hud);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-primary);
-  background: rgba(212, 175, 55, 0.08);
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  background: transparent;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
   padding: 8px 16px;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease,
-    border-color 0.3s ease, background 0.3s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .btn-tactical:hover {
-  background: rgba(212, 175, 55, 0.14);
-  border-color: var(--border-active);
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.12);
+  background: var(--bg-tertiary);
+  border-color: #454545;
 }
 
-.btn-tactical:active { transform: scale(0.97); }
+.btn-tactical:active { background: #1a1a1a; }
 .btn-tactical:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-tactical--cyan { background: rgba(0, 229, 255, 0.08); border-color: var(--border-cyan); }
+.btn-tactical--cyan { color: var(--cyan-primary); border-color: rgba(80, 227, 194, 0.25); }
 .btn-tactical--cyan:hover {
-  background: rgba(0, 229, 255, 0.14);
-  border-color: rgba(0, 229, 255, 0.4);
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+  background: rgba(80, 227, 194, 0.06);
+  border-color: rgba(80, 227, 194, 0.45);
 }
 
-.btn-tactical--danger { background: rgba(255, 61, 61, 0.08); border-color: rgba(255, 61, 61, 0.25); }
+.btn-tactical--danger { color: var(--alert-red); border-color: rgba(248, 81, 73, 0.3); }
 .btn-tactical--danger:hover {
-  background: rgba(255, 61, 61, 0.16);
-  border-color: rgba(255, 61, 61, 0.5);
-  box-shadow: 0 0 20px rgba(255, 61, 61, 0.1);
+  background: rgba(248, 81, 73, 0.08);
+  border-color: rgba(248, 81, 73, 0.55);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -269,18 +241,18 @@ html, body, #root {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 4px;
   font-family: var(--font-hud);
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   border: 1px solid;
 }
-.gotham-tag--critical { background: rgba(255, 61, 61, 0.12); color: var(--alert-red); border-color: rgba(255, 61, 61, 0.3); }
-.gotham-tag--medium { background: rgba(212, 175, 55, 0.12); color: var(--gold-primary); border-color: rgba(212, 175, 55, 0.3); }
-.gotham-tag--low { background: rgba(0, 230, 118, 0.12); color: var(--alert-green); border-color: rgba(0, 230, 118, 0.3); }
-.gotham-tag--info { background: rgba(0, 229, 255, 0.08); color: var(--cyan-primary); border-color: rgba(0, 229, 255, 0.2); }
+.gotham-tag--critical { background: rgba(248, 81, 73, 0.1); color: var(--alert-red); border-color: rgba(248, 81, 73, 0.3); }
+.gotham-tag--medium { background: rgba(255, 255, 255, 0.06); color: var(--text-primary); border-color: #2e2e2e; }
+.gotham-tag--low { background: rgba(69, 212, 131, 0.1); color: var(--alert-green); border-color: rgba(69, 212, 131, 0.3); }
+.gotham-tag--info { background: rgba(80, 227, 194, 0.08); color: var(--cyan-primary); border-color: rgba(80, 227, 194, 0.25); }
 
 /* ═══════════════════════════════════════════════════════════════
    NOTIFICATION PULSE — badge con anillo expansivo
@@ -298,7 +270,6 @@ html, body, #root {
   width: 10px; height: 10px;
   border-radius: 50%;
   background: var(--alert-red);
-  box-shadow: 0 0 6px rgba(255, 61, 61, 0.5);
   flex-shrink: 0;
 }
 
@@ -311,9 +282,9 @@ html, body, #root {
   animation: notification-ring 1.6s cubic-bezier(0, 0.55, 0.45, 1) infinite;
 }
 
-.notification-pulse--gold { background: var(--gold-primary); box-shadow: 0 0 6px var(--gold-glow); }
+.notification-pulse--gold { background: var(--gold-primary); }
 .notification-pulse--gold::before { background: var(--gold-primary); }
-.notification-pulse--green { background: var(--alert-green); box-shadow: 0 0 6px rgba(0, 230, 118, 0.5); }
+.notification-pulse--green { background: var(--alert-green); }
 .notification-pulse--green::before { background: var(--alert-green); }
 
 .notification-pulse--count {
@@ -334,16 +305,16 @@ html, body, #root {
 .animate-osiris-pulse { animation: osiris-pulse 2s ease-in-out infinite; }
 
 @keyframes gotham-enter {
-  0% { opacity: 0; transform: translateY(12px); filter: blur(6px); }
-  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-.gotham-enter { animation: gotham-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.gotham-enter { animation: gotham-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes toast-in {
-  0% { opacity: 0; transform: translateX(40px); filter: blur(6px); }
-  100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+  0% { opacity: 0; transform: translateX(24px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
-.toast-enter { animation: toast-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.toast-enter { animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* ── Modales: zoom desde/hacia la toolbar flotante (derecha, centrada) ── */
 @keyframes modal-backdrop-in {
@@ -354,40 +325,36 @@ html, body, #root {
   from { opacity: 1; }
   to { opacity: 0; }
 }
-.modal-backdrop-in { animation: modal-backdrop-in 0.25s ease both; }
-.modal-backdrop-out { animation: modal-backdrop-out 0.24s ease forwards; }
+.modal-backdrop-in { animation: modal-backdrop-in 0.2s ease both; }
+.modal-backdrop-out { animation: modal-backdrop-out 0.18s ease forwards; }
 
 @keyframes panel-from-toolbar {
   0% {
     transform: translateX(calc(50vw - 44px)) scale(0.04);
     opacity: 0;
-    filter: blur(8px);
   }
   100% {
     transform: translateX(0) scale(1);
     opacity: 1;
-    filter: blur(0);
   }
 }
 @keyframes panel-to-toolbar {
   0% {
     transform: translateX(0) scale(1);
     opacity: 1;
-    filter: blur(0);
   }
   100% {
     transform: translateX(calc(50vw - 44px)) scale(0.04);
     opacity: 0;
-    filter: blur(8px);
   }
 }
 /* fill `backwards`: al terminar la entrada no queda transform residual
    (un transform en el ancestro rompería el position:fixed de modales hijas) */
 .panel-from-toolbar {
-  animation: panel-from-toolbar 0.34s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: panel-from-toolbar 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 .panel-to-toolbar {
-  animation: panel-to-toolbar 0.26s cubic-bezier(0.55, 0, 0.85, 0.4) forwards;
+  animation: panel-to-toolbar 0.22s cubic-bezier(0.55, 0, 0.85, 0.4) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -399,79 +366,175 @@ html, body, #root {
   }
 }
 
-/* ── Particle Grid (fondo del área vacía) ── */
-.particle-grid {
-  background-image: radial-gradient(circle, rgba(212, 175, 55, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
+/* ═══════════════════════════════════════════════════════════════
+   MAPA TÁCTICO — nodos del repositorio en React Flow
+   ═══════════════════════════════════════════════════════════════ */
+.map-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+  max-width: 210px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  font-family: var(--font-hud);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 
+.map-node:hover {
+  border-color: var(--border-active);
+  background: var(--bg-tertiary);
+  transform: translateY(-1px);
+}
+
+/* Carpetas: texto pleno y borde un punto más presente que los archivos. */
+.map-node--dir {
+  color: var(--text-primary);
+  border-color: #262626;
+}
+
+.map-node--file { font-size: 9.5px; }
+
+/* Raíz del repo: el único nodo con acento blanco pleno. */
+.map-node--root {
+  min-width: 150px;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-heading);
+  border-color: var(--border-active);
+  background: var(--bg-tertiary);
+}
+
+/* Lomo blanco para los archivos con cambios en git. */
+.map-node--mod::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 4px;
+  bottom: 4px;
+  width: 2.5px;
+  border-radius: 2px;
+  background: var(--gold-primary);
+}
+
+/* Actividad en vivo: pulso ámbar↔teal del borde. Lo llevan el archivo
+   alertado y TODA su cadena de carpetas ancestro. */
+@keyframes map-node-activity {
+  0%, 100% {
+    border-color: rgba(245, 166, 35, 0.55);
+    box-shadow: 0 0 12px rgba(245, 166, 35, 0.16);
+  }
+  50% {
+    border-color: rgba(80, 227, 194, 0.55);
+    box-shadow: 0 0 12px rgba(80, 227, 194, 0.16);
+  }
+}
+.map-node--activity { animation: map-node-activity 1.6s ease-in-out infinite; }
+
+.map-node__badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid #2e2e2e;
+  font-size: 8px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Los handles solo existen para anclar las aristas: invisibles. */
+.map-handle {
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Controles de zoom de React Flow integrados en el tema. */
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  fill: var(--text-secondary) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--bg-tertiary) !important;
+  fill: var(--text-primary) !important;
+}
+
+/* Minimapa con la misma superficie plana del resto del HUD. */
+.react-flow__minimap {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__minimap-mask { fill: rgba(0, 0, 0, 0.65); }
+
+/* Las aristas "calientes" (animated) fluyen hacia el archivo modificado;
+   guiones más marcados que el default para que se lea como un stream. */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+}
+
+/* Popover de cambios al hacer hover sobre un archivo modificado. */
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.map-popover { animation: popover-in 0.15s ease both; }
+
 /* ═══════════════════════════════════════════════════════════════
-   DIFF VIEWER — vista estilo editor con gutters de nº de línea
+   FILE VIEWER — contenido de archivo con números de línea
    ═══════════════════════════════════════════════════════════════ */
-.diff-row {
+.file-line {
   display: grid;
-  grid-template-columns: 46px 46px 1fr;
-  font-family: var(--font-hud);
+  grid-template-columns: 52px 1fr;
+  font-family: var(--font-term);
   font-size: 11px;
   line-height: 1.6;
 }
 
-.diff-row__no {
+.file-line__no {
   text-align: right;
-  padding-right: 8px;
+  padding-right: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   user-select: none;
-  border-right: 1px solid var(--border-secondary);
-  background: rgba(12, 14, 26, 0.5);
+  border-right: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
 }
 
-.diff-row__sign {
-  display: inline-block;
-  width: 14px;
-  user-select: none;
-  opacity: 0.7;
-}
-
-.diff-row__text {
+.file-line__text {
   white-space: pre-wrap;
   word-break: break-all;
-  padding: 0 10px;
+  padding: 0 12px;
+  color: var(--text-primary);
 }
 
-.diff-row--add { background: rgba(0, 230, 118, 0.08); }
-.diff-row--add .diff-row__text { color: #7ee2a8; }
-.diff-row--add .diff-row__no { background: rgba(0, 230, 118, 0.1); color: #5dba87; }
-
-.diff-row--del { background: rgba(255, 61, 61, 0.08); }
-.diff-row--del .diff-row__text { color: #ff8a8a; text-decoration: line-through; text-decoration-color: rgba(255, 61, 61, 0.35); }
-.diff-row--del .diff-row__no { background: rgba(255, 61, 61, 0.1); color: #c96a6a; }
-
-.diff-row--ctx .diff-row__text { color: var(--text-secondary); }
-
-.diff-row--hunk {
-  background: rgba(0, 229, 255, 0.06);
-  border-top: 1px solid rgba(0, 229, 255, 0.12);
-  border-bottom: 1px solid rgba(0, 229, 255, 0.08);
-}
-.diff-row--hunk .diff-row__text { color: var(--cyan-primary); font-size: 10px; padding: 2px 10px; }
-.diff-file-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: rgba(12, 14, 26, 0.97);
-  border-top: 1px solid var(--border-secondary);
-  border-bottom: 1px solid var(--border-secondary);
-  font-family: var(--font-hud);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--gold-primary);
-  z-index: 10;
-}
+.file-line:hover .file-line__text { background: var(--hover-accent); }
 
 /* ═══════════════════════════════════════════════════════════════
    FOLDER CARDS — proyectos con forma de carpeta (pestaña superior)
@@ -485,15 +548,11 @@ html, body, #root {
   min-height: 104px;
   padding: 14px;
   text-align: left;
-  background: rgba(12, 14, 26, 0.85);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
-  border-radius: 4px 12px 12px 12px;
+  border-radius: 4px 10px 10px 10px;
   cursor: pointer;
-  transition:
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    border-color 0.25s ease,
-    box-shadow 0.3s ease;
-  will-change: transform;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 /* Pestaña superior de la carpeta */
@@ -504,42 +563,28 @@ html, body, #root {
   left: -1px;
   width: 44%;
   height: 10px;
-  background: rgba(12, 14, 26, 0.85);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-bottom: none;
   border-radius: 6px 10px 0 0;
-  transition: border-color 0.25s ease, background 0.25s ease;
-}
-
-/* Lomo dorado sutil bajo la pestaña */
-.folder-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  border-radius: 4px 12px 0 0;
-  background: linear-gradient(90deg, rgba(212, 175, 55, 0.35), transparent 70%);
-  pointer-events: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .folder-card:hover {
-  transform: translateY(-3px);
   border-color: var(--border-active);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 18px rgba(212, 175, 55, 0.08);
+  background: var(--bg-tertiary);
 }
 .folder-card:hover::before {
   border-color: var(--border-active);
+  background: var(--bg-tertiary);
 }
 
 .folder-card--focused {
-  border-color: var(--border-active);
-  box-shadow: 0 0 22px rgba(212, 175, 55, 0.14);
+  border-color: #555555;
 }
 .folder-card--focused::before {
-  border-color: var(--border-active);
-  background: rgba(212, 175, 55, 0.12);
+  border-color: #555555;
+  background: var(--bg-tertiary);
 }
 
 /* Variante "añadir nuevo": carpeta punteada vacía */
@@ -547,38 +592,34 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   border-style: dashed;
-  border-color: rgba(212, 175, 55, 0.25);
-  background: rgba(212, 175, 55, 0.03);
+  border-color: #2e2e2e;
+  background: transparent;
   color: var(--text-muted);
 }
 .folder-card--add::before {
   border-style: dashed;
-  border-color: rgba(212, 175, 55, 0.25);
-  background: rgba(212, 175, 55, 0.03);
+  border-color: #2e2e2e;
+  background: transparent;
 }
-.folder-card--add::after { display: none; }
 .folder-card--add:hover {
-  color: var(--gold-primary);
-  background: rgba(212, 175, 55, 0.07);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
 }
 
 /* ── Inputs ── */
 .hud-input {
   width: 100%;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-secondary);
-  border-radius: 8px;
+  background: var(--bg-void);
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
   padding: 8px 12px;
   font-family: var(--font-hud);
   font-size: 11px;
   color: var(--text-primary);
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease;
 }
-.hud-input:focus {
-  border-color: var(--border-active);
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.1);
-}
+.hud-input:focus { border-color: #707070; }
 .hud-input::placeholder { color: var(--text-muted); }
 
 /* ── xterm container ── */
@@ -607,4 +648,72 @@ html, body, #root {
 }
 .terminal-host:hover .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIFF VIEWER — vista estilo editor con gutters de nº de línea
+   ═══════════════════════════════════════════════════════════════ */
+.diff-row {
+  display: grid;
+  grid-template-columns: 46px 46px 1fr;
+  font-family: var(--font-term);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.diff-row__no {
+  text-align: right;
+  padding-right: 8px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  border-right: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.diff-row__sign {
+  display: inline-block;
+  width: 14px;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.diff-row__text {
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 0 10px;
+}
+
+.diff-row--add { background: rgba(69, 212, 131, 0.08); }
+.diff-row--add .diff-row__text { color: #86d996; }
+.diff-row--add .diff-row__no { background: rgba(69, 212, 131, 0.08); color: #5fa873; }
+
+.diff-row--del { background: rgba(248, 81, 73, 0.08); }
+.diff-row--del .diff-row__text { color: #ff9a93; text-decoration: line-through; text-decoration-color: rgba(248, 81, 73, 0.35); }
+.diff-row--del .diff-row__no { background: rgba(248, 81, 73, 0.08); color: #bf6660; }
+
+.diff-row--ctx .diff-row__text { color: var(--text-secondary); }
+
+.diff-row--hunk {
+  background: rgba(80, 227, 194, 0.05);
+  border-top: 1px solid rgba(80, 227, 194, 0.12);
+  border-bottom: 1px solid rgba(80, 227, 194, 0.08);
+}
+.diff-row--hunk .diff-row__text { color: var(--cyan-primary); font-size: 10px; padding: 2px 10px; }
+.diff-file-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+  font-family: var(--font-hud);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  z-index: 10;
 }

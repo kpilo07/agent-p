@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"agent-p/internal/db"
+	"agent-p/internal/fswatch"
 	"agent-p/internal/gitwatch"
 	"agent-p/internal/hub"
 	"agent-p/internal/server"
@@ -71,6 +72,7 @@ func run() error {
 
 	manager := term.NewManager(log, h)
 	watcher := gitwatch.New(log, h, *interval)
+	fsWatcher := fswatch.New(log, h)
 
 	// Sesiones de BD vivas, indexadas por proyecto.
 	var sessMu sync.Mutex
@@ -81,6 +83,7 @@ func run() error {
 			return err
 		}
 		watcher.Watch(ctx, p.ID, p.Name, p.Path)
+		fsWatcher.Watch(ctx, p.ID, p.Path)
 		if id, err := store.CreateSession(ctx, p.ID); err == nil {
 			sessMu.Lock()
 			liveSessions[p.ID] = id
@@ -105,6 +108,7 @@ func run() error {
 
 	stopProject := func(projectID string) error {
 		watcher.Unwatch(projectID)
+		fsWatcher.Unwatch(projectID)
 		err := manager.StopProject(projectID)
 		if errors.Is(err, term.ErrNotRunning) {
 			endDBSession(projectID) // por si quedó registro huérfano
@@ -161,6 +165,7 @@ func run() error {
 	log.Info("shutting down…")
 	manager.StopAll()
 	watcher.UnwatchAll()
+	fsWatcher.UnwatchAll()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

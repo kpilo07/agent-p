@@ -76,15 +76,17 @@ func (c *Client) readPump() {
 		cmd.Client = c
 
 		switch cmd.Type {
-		case CmdAttach:
+		case CmdAttach, CmdSubscribe:
 			c.hub.subs <- subRequest{client: c, projectID: cmd.ProjectID, subscribe: true}
-		case CmdDetach:
+		case CmdDetach, CmdUnsubscribe:
 			c.hub.subs <- subRequest{client: c, projectID: cmd.ProjectID, subscribe: false}
 		}
 
-		// Attach también se reenvía: la orquestación responde con el replay
-		// del buffer de terminal.
-		if cmd.Type != CmdDetach {
+		// Solo los comandos de terminal viajan a la orquestación (attach
+		// también: responde con el replay del buffer). subscribe/unsubscribe
+		// se agotan en el hub.
+		switch cmd.Type {
+		case CmdAttach, CmdInput, CmdResize:
 			select {
 			case c.hub.commands <- cmd:
 			default:

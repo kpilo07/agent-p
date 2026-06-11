@@ -69,6 +69,11 @@ function send(msg: Record<string, unknown>): void {
 export const attach = (projectId: string, termId: string = AGENT_TERM_ID) =>
   send({ type: 'attach', projectId, termId });
 export const detach = (projectId: string) => send({ type: 'detach', projectId });
+// Suscripción a los eventos del proyecto (git_update, fs_change…) sin
+// terminal: la gestiona App por proyecto enfocado, de modo que el Mapa
+// Táctico sigue en vivo aunque la consola no esté montada.
+export const subscribeProject = (projectId: string) => send({ type: 'subscribe', projectId });
+export const unsubscribeProject = (projectId: string) => send({ type: 'unsubscribe', projectId });
 export const sendInput = (projectId: string, termId: string, data: string) =>
   send({ type: 'input', projectId, termId, data });
 export const sendResize = (projectId: string, termId: string, cols: number, rows: number) =>

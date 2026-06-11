@@ -57,6 +57,9 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/projects/{id}/terminals", s.handleCreateTerminal)
 	mux.HandleFunc("DELETE /api/projects/{id}/terminals/{termId}", s.handleCloseTerminal)
 	mux.HandleFunc("GET /api/projects/{id}/diff", s.handleProjectDiff)
+	mux.HandleFunc("GET /api/projects/{id}/tree", s.handleProjectTree)
+	mux.HandleFunc("GET /api/projects/{id}/file", s.handleProjectFile)
+	mux.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
 	mux.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
 
 	mux.Handle("/", spaHandler(dist))
