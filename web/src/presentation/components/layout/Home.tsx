@@ -3,8 +3,8 @@
 // invita a abrir el panel de proyectos.
 import { useMemo } from 'react';
 
-import { projectService } from '../../core/use-cases/ProjectService';
-import { pickRecentProjects, useStore } from '../../infrastructure/store/store';
+import { projectService } from '../../../core/use-cases/ProjectService';
+import { pickRecentProjects, useStore } from '../../../infrastructure/store/store';
 import { IconFolder, IconGitBranch } from '../ui/icons';
 import { AgentLogo } from '../ui/AgentLogo';
 

@@ -469,6 +469,169 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Menú de configuración de fondo del mapa ── */
+
+/* Botón disparador: reemplaza la etiqueta "Mapa táctico" */
+.map-bg-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #2e2e2e;
+  background: rgba(0, 0, 0, 0.75);
+  font-family: var(--font-hud);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.map-bg-trigger:hover,
+.map-bg-trigger--open {
+  border-color: rgba(80, 227, 194, 0.35);
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.88);
+}
+
+/* Popover del menú */
+.map-bg-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 100;
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-active);
+  background: var(--bg-secondary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: gotham-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.map-bg-menu__section {
+  margin: 0;
+  font-family: var(--font-hud);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Grid para los patrones: 4 columnas */
+.map-bg-menu__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.map-bg-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-hud);
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.map-bg-option:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.map-bg-option--active {
+  border-color: rgba(80, 227, 194, 0.4);
+  background: rgba(80, 227, 194, 0.07);
+  color: var(--cyan-primary);
+}
+
+.map-bg-option__icon {
+  font-size: 13px;
+  line-height: 1;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Cuadrícula degradada: líneas punteadas con fade radial desde el centro */
+.map-bg-dashed-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right,  rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image:
+    repeating-linear-gradient(to right,  black 0px, black 3px, transparent 3px, transparent 8px),
+    repeating-linear-gradient(to bottom, black 0px, black 3px, transparent 3px, transparent 8px),
+    radial-gradient(ellipse 65% 65% at 50% 50%, #000 25%, transparent 75%);
+  -webkit-mask-image:
+    repeating-linear-gradient(to right,  black 0px, black 3px, transparent 3px, transparent 8px),
+    repeating-linear-gradient(to bottom, black 0px, black 3px, transparent 3px, transparent 8px),
+    radial-gradient(ellipse 65% 65% at 50% 50%, #000 25%, transparent 75%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+
+/* Circuito: retícula doble con nodos en intersecciones, desvanecida hacia la izquierda */
+.map-bg-circuit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg,
+      transparent, transparent 19px,
+      rgba(255,255,255,0.06) 19px, rgba(255,255,255,0.06) 20px,
+      transparent 20px, transparent 39px,
+      rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    repeating-linear-gradient(90deg,
+      transparent, transparent 19px,
+      rgba(255,255,255,0.06) 19px, rgba(255,255,255,0.06) 20px,
+      transparent 20px, transparent 39px,
+      rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    radial-gradient(circle at 20px 20px, rgba(255,255,255,0.10) 2px, transparent 2px),
+    radial-gradient(circle at 40px 40px, rgba(255,255,255,0.10) 2px, transparent 2px);
+  background-size: 40px 40px, 40px 40px, 40px 40px, 40px 40px;
+  mask-image: linear-gradient(to left, #000 0%, #000 50%, transparent 20%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, #000 0%, #000 50%, transparent 20%, transparent 100%);
+}
+
+/* Diagonal: doble gradiente a 45°/-45° formando cruces en X */
+.map-bg-diagonal {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(45deg,  transparent 49%, rgba(255,255,255,0.07) 49%, rgba(255,255,255,0.07) 51%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.07) 49%, rgba(255,255,255,0.07) 51%, transparent 51%);
+  background-size: 40px 40px;
+}
+
+/* Zigzag: capas de líneas a 0°, 90°, 60° y 150° de distintas opacidades */
+.map-bg-zigzag {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg,   transparent, transparent 20px, rgba(255,255,255,0.07) 20px, rgba(255,255,255,0.07) 21px),
+    repeating-linear-gradient(90deg,  transparent, transparent 30px, rgba(255,255,255,0.05) 30px, rgba(255,255,255,0.05) 31px),
+    repeating-linear-gradient(60deg,  transparent, transparent 40px, rgba(255,255,255,0.04) 40px, rgba(255,255,255,0.04) 41px),
+    repeating-linear-gradient(150deg, transparent, transparent 35px, rgba(255,255,255,0.03) 35px, rgba(255,255,255,0.03) 36px);
+}
+
 /* Los handles solo existen para anclar las aristas: invisibles. */
 .map-handle {
   width: 1px !important;

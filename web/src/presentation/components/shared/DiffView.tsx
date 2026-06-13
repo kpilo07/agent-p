@@ -3,12 +3,12 @@
 // archivos modificados que usa la modal de review.
 import { useMemo, useState } from 'react';
 
-import { diffService } from '../../core/use-cases/DiffService';
-import type { DiffRow } from '../../core/domain/diff';
+import { diffService } from '../../../core/use-cases/DiffService';
+import type { DiffRow } from '../../../core/domain/diff';
 
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
 const statusTag = (status: string) => diffService.statusTag(status);
-import type { GitSnapshot } from '../../infrastructure/store/store';
+import type { GitSnapshot } from '../../../infrastructure/store/store';
 import { IconChevronDown, IconChevronRight } from '../ui/icons';
 
 // ── Filas de un archivo ─────────────────────────────────────────

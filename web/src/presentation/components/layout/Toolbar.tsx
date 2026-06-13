@@ -3,8 +3,8 @@
 // herramientas del proyecto en foco (review/nueva terminal) y el grupo de
 // consolas abiertas (agente + shells). El cambio de proyecto vive en el menú
 // de la StatusBar (esquina inferior derecha).
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import { AGENT_TERM_ID, useStore, type TermInfo } from '../../infrastructure/store/store';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import { AGENT_TERM_ID, useStore, type TermInfo } from '../../../infrastructure/store/store';
 import { IconFolder, IconGitBranch, IconPlus, IconSearch, IconTerminal } from '../ui/icons';
 
 const ghostBtn =

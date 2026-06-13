@@ -5,9 +5,9 @@
 // nodo del mapa.
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import type { TreeNode } from '../../core/domain/project';
-import { selectFocusedProject, useStore } from '../../infrastructure/store/store';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import type { TreeNode } from '../../../core/domain/project';
+import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { BlendySeed, useBlendyModal } from '../ui/Blendy';
 import { IconFile, IconSearch } from '../ui/icons';
 

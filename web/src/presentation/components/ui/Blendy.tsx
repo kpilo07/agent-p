@@ -8,7 +8,7 @@
 // BlendySeed pinta el origen: un punto fijo en el centro del viewport.
 import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import { blendyService } from '../../infrastructure/ui/BlendyService';
+import { blendyService } from '../../../infrastructure/ui/BlendyService';
 
 export function useBlendyModal(onClose: () => void) {
   // useId trae ':' que no es válido como valor de atributo para los selectores

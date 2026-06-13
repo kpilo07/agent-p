@@ -3,8 +3,8 @@
 // notificaciones pendientes y estado del enlace WebSocket.
 import { useState } from 'react';
 
-import { projectService } from '../../core/use-cases/ProjectService';
-import { selectFocusedProject, useStore } from '../../infrastructure/store/store';
+import { projectService } from '../../../core/use-cases/ProjectService';
+import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { IconBell, IconChevronDown, IconLogo } from '../ui/icons';
 
 const WS_STATUS_STYLE = {

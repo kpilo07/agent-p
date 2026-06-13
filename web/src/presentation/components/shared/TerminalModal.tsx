@@ -7,14 +7,14 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import { wsClient } from '../../infrastructure/ws/WsClient';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import { wsClient } from '../../../infrastructure/ws/WsClient';
 import {
   AGENT_TERM_ID,
   selectFocusedProject,
   useStore,
   type TermInfo,
-} from '../../infrastructure/store/store';
+} from '../../../infrastructure/store/store';
 import { ModalShell } from '../ui/ModalShell';
 import { IconClose, IconTerminal, IconTrash } from '../ui/icons';
 

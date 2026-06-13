@@ -2,9 +2,9 @@
 // Navega el árbol de directorios y solo permite SELECCIONAR carpetas que
 // sean repositorios git (el backend lo vuelve a validar al crear).
 import { useEffect, useState } from 'react';
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import type { FsListing } from '../../core/domain/project';
-import { useStore } from '../../infrastructure/store/store';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import type { FsListing } from '../../../core/domain/project';
+import { useStore } from '../../../infrastructure/store/store';
 import { ModalShell } from '../ui/ModalShell';
 import { IconArrowUpDir, IconClose, IconFolder, IconGitBranch } from '../ui/icons';
 

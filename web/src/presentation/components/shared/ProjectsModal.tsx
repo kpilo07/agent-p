@@ -2,8 +2,8 @@
 // La primera celda es el botón de "nuevo proyecto"; el resto, los proyectos
 // registrados con sus indicadores (sesión activa, eventos sin leer).
 import { useState } from 'react';
-import { projectService } from '../../core/use-cases/ProjectService';
-import { useStore } from '../../infrastructure/store/store';
+import { projectService } from '../../../core/use-cases/ProjectService';
+import { useStore } from '../../../infrastructure/store/store';
 import { AddProjectModal } from './AddProjectModal';
 import { ModalShell } from '../ui/ModalShell';
 import { IconClose, IconPlus } from '../ui/icons';

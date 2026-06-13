@@ -2,8 +2,8 @@
 // agentes CLI predefinidos (tipear es el último recurso, vía "Otro") y nombre
 // derivado automáticamente de la carpeta. El backend valida que sea repo git.
 import { useState } from 'react';
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import { useStore } from '../../infrastructure/store/store';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import { useStore } from '../../../infrastructure/store/store';
 import { DirBrowser } from './DirBrowser';
 import { ModalShell } from '../ui/ModalShell';
 import { IconClose, IconFolder } from '../ui/icons';

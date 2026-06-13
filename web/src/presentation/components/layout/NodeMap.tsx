@@ -25,23 +25,68 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import type { TreeNode } from '../../core/domain/project';
-import { diffService } from '../../core/use-cases/DiffService';
-import type { DiffRow } from '../../core/domain/diff';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import type { TreeNode } from '../../../core/domain/project';
+import { diffService } from '../../../core/use-cases/DiffService';
+import type { DiffRow } from '../../../core/domain/diff';
 
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
-import { selectFocusedProject, useStore, type FileStat } from '../../infrastructure/store/store';
-import { DiffRows } from './DiffView';
+import { selectFocusedProject, useStore, type FileStat } from '../../../infrastructure/store/store';
+import { DiffRows } from '../shared/DiffView';
 import {
   IconChevronDown,
   IconChevronRight,
   IconFile,
   IconFolder,
   IconFolderOpen,
+  IconSettings,
   IconLogo,
   IconRefresh,
 } from '../ui/icons';
+
+// ── Configuración de fondo del mapa ─────────────────────────────
+
+type BgPattern = 'dots' | 'lines' | 'cross' | 'dashedgrid' | 'circuit' | 'diagonal' | 'zigzag' | 'none';
+
+interface BgConfig {
+  pattern: BgPattern;
+}
+
+const BG_STORAGE_KEY = 'map-bg-config';
+
+const BG_PATTERNS: { id: BgPattern; label: string; icon: string }[] = [
+  { id: 'dots',      label: 'Puntos',       icon: '·' },
+  { id: 'lines',     label: 'Líneas',       icon: '≡' },
+  { id: 'cross',     label: 'Cruz',         icon: '⊞' },
+  { id: 'dashedgrid',label: 'Cuadrícula',   icon: '⬚' },
+  { id: 'circuit',   label: 'Circuito',     icon: '⊙' },
+  { id: 'diagonal',  label: 'Diagonal',     icon: '⤢' },
+  { id: 'zigzag',    label: 'Zigzag',       icon: '∿' },
+  { id: 'none',      label: 'Limpio',       icon: '□' },
+];
+
+const BG_VARIANT_MAP: Record<BgPattern, BackgroundVariant | null> = {
+  dots:       BackgroundVariant.Dots,
+  lines:      BackgroundVariant.Lines,
+  cross:      BackgroundVariant.Cross,
+  dashedgrid: null,
+  circuit:    null,
+  diagonal:   null,
+  zigzag:     null,
+  none:       null,
+};
+
+function loadBgConfig(): BgConfig {
+  try {
+    const raw = localStorage.getItem(BG_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as BgConfig;
+  } catch {}
+  return { pattern: 'dots' };
+}
+
+function saveBgConfig(cfg: BgConfig) {
+  try { localStorage.setItem(BG_STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+}
 
 // ── Datos de cada nodo del mapa ─────────────────────────────────
 
@@ -109,7 +154,7 @@ function buildGraph(
       .filter(([, v]) => v.op === 'create' || v.op === 'rename')
       .map(([p]) => p),
     ...[...gitByPath.entries()]
-      .filter(([, s]) => s.Status.includes('?') || s.Status === 'A')
+      .filter(([, s]) => s.status?.includes('?') || s.status === 'A')
       .map(([p]) => p),
   ]);
   // Cadena de ancestros de archivos nuevos → pulso verde en dirs.
@@ -137,9 +182,9 @@ function buildGraph(
     const isNew =
       alertOp === 'create' ||
       alertOp === 'rename' ||
-      (stat?.Status.includes('?') ?? false) ||
-      stat?.Status === 'A';
-    const isDeleted = stat?.Status.includes('D') ?? false;
+      (stat?.status?.includes('?') ?? false) ||
+      stat?.status === 'A';
+    const isDeleted = stat?.status?.includes('D') ?? false;
 
     nodes.push({
       id,
@@ -295,6 +340,29 @@ export function NodeMap() {
 
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [reloadSeq, setReloadSeq] = useState(0);
+  const [bgCfg, setBgCfg] = useState<BgConfig>(loadBgConfig);
+  const [bgMenuOpen, setBgMenuOpen] = useState(false);
+  const bgMenuRef = useRef<HTMLDivElement>(null);
+
+  const bgVariant = BG_VARIANT_MAP[bgCfg.pattern];
+
+  const updateBg = (partial: Partial<BgConfig>) => {
+    const next = { ...bgCfg, ...partial };
+    setBgCfg(next);
+    saveBgConfig(next);
+  };
+
+  // Cierra el menú si el usuario hace clic fuera.
+  useEffect(() => {
+    if (!bgMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target as Node)) {
+        setBgMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [bgMenuOpen]);
 
   // ── Popover de cambios al hacer hover sobre un archivo modificado ──
   // Se ancla en coordenadas de pantalla (fuera del transform del zoom) y
@@ -350,7 +418,7 @@ export function NodeMap() {
   const alertCount = alertEntries.length;
 
   const gitFiles = snap?.files ?? [];
-  const newFileCount = gitFiles.filter((f) => f.Status.includes('?') || f.Status === 'A').length;
+  const newFileCount = gitFiles.filter((f) => f.status?.includes('?') || f.status === 'A').length;
   const dirtyCount = gitFiles.length;
 
   const onNodeClick = (_: React.MouseEvent, node: MapNode) => {
@@ -410,6 +478,15 @@ export function NodeMap() {
       ref={sectionRef}
       className="glass-panel glass-panel--terminal gotham-enter relative h-full min-h-0 overflow-hidden"
     >
+      {/* Fondo cuadrícula degradada: dashed lines con fade radial desde el centro */}
+      {bgCfg.pattern === 'dashedgrid' && <div className="map-bg-dashed-grid" />}
+      {/* Fondo circuito: retícula con nodos en intersecciones, visible en el lado derecho */}
+      {bgCfg.pattern === 'circuit' && <div className="map-bg-circuit" />}
+      {/* Fondo diagonal: cruz en X sobre cuadrícula de 40px */}
+      {bgCfg.pattern === 'diagonal' && <div className="map-bg-diagonal" />}
+      {/* Fondo zigzag: capas de líneas en múltiples ángulos */}
+      {bgCfg.pattern === 'zigzag' && <div className="map-bg-zigzag" />}
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -431,12 +508,14 @@ export function NodeMap() {
         onlyRenderVisibleElements
         style={{ background: 'transparent' }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={24}
-          size={1}
-          color="rgba(255, 255, 255, 0.09)"
-        />
+        {bgVariant !== null && (
+          <Background
+            variant={bgVariant}
+            gap={bgCfg.pattern === 'cross' ? 32 : 24}
+            size={bgCfg.pattern === 'dots' ? 1 : bgCfg.pattern === 'cross' ? 10 : undefined}
+            color="rgba(255,255,255,0.09)"
+          />
+        )}
         <Controls showInteractive={false} position="top-right" />
         <MiniMap
           position="bottom-right"
@@ -447,9 +526,39 @@ export function NodeMap() {
           maskColor="rgba(0, 0, 0, 0.65)"
         />
 
-        {/* HUD: identidad + recarga */}
-        <Panel position="top-left" className="flex items-center gap-3">
-          <span className="hud-label rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">Mapa táctico</span>
+        {/* HUD: menú de fondo + nombre del proyecto + recarga */}
+        <Panel position="top-left" className="flex items-center gap-2">
+          {/* Botón-menú que reemplaza la etiqueta "Mapa táctico" */}
+          <div ref={bgMenuRef} className="relative">
+            <button
+              className={`map-bg-trigger ${bgMenuOpen ? 'map-bg-trigger--open' : ''}`}
+              onClick={() => setBgMenuOpen((v) => !v)}
+              title="Cambiar fondo del mapa"
+            >
+              <IconSettings className="h-3.5 w-3.5" />
+              <span>Configuración</span>
+            </button>
+
+            {bgMenuOpen && (
+              <div className="map-bg-menu">
+                <p className="map-bg-menu__section">Fondo</p>
+                <div className="map-bg-menu__grid">
+                  {BG_PATTERNS.map((p) => (
+                    <button
+                      key={p.id}
+                      className={`map-bg-option ${bgCfg.pattern === p.id ? 'map-bg-option--active' : ''}`}
+                      onClick={() => updateBg({ pattern: p.id })}
+                      title={p.label}
+                    >
+                      <span className="map-bg-option__icon">{p.icon}</span>
+                      <span>{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <span className="hud-value rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">{focused.name}</span>
           <button
             className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"

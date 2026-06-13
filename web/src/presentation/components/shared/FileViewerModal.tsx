@@ -6,16 +6,16 @@
 import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 
-import { apiClient as api } from '../../infrastructure/api/ApiClient';
-import type { FileContent } from '../../core/domain/project';
-import { diffService } from '../../core/use-cases/DiffService';
-import { highlightService } from '../../infrastructure/ui/HighlightService';
+import { apiClient as api } from '../../../infrastructure/api/ApiClient';
+import type { FileContent } from '../../../core/domain/project';
+import { diffService } from '../../../core/use-cases/DiffService';
+import { highlightService } from '../../../infrastructure/ui/HighlightService';
 
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
 const highlightToLines = (code: string, path: string) => highlightService.highlightToLines(code, path);
 const isImagePath = (path: string) => highlightService.isImagePath(path);
 const isMarkdownPath = (path: string) => highlightService.isMarkdownPath(path);
-import { selectFocusedProject, useStore } from '../../infrastructure/store/store';
+import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { DiffRows } from './DiffView';
 import { ModalShell } from '../ui/ModalShell';
 import { IconClose, IconFile, IconRefresh } from '../ui/icons';
