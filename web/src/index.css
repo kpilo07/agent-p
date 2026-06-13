@@ -3,14 +3,14 @@
 /* ── Tipografía auto-hospedada (Vercel Geist, licencia OFL) ── */
 @font-face {
   font-family: 'Geist Mono';
-  src: url('./assets/fonts/GeistMono-Regular.woff2') format('woff2');
+  src: url('./presentation/assets/fonts/GeistMono-Regular.woff2') format('woff2');
   font-weight: 400;
   font-display: swap;
 }
 
 @font-face {
   font-family: 'Geist Mono';
-  src: url('./assets/fonts/GeistMono-Bold.woff2') format('woff2');
+  src: url('./presentation/assets/fonts/GeistMono-Bold.woff2') format('woff2');
   font-weight: 700;
   font-display: swap;
 }
@@ -87,6 +87,8 @@
   /* Parpadeo sutil ámbar↔teal de los archivos recién modificados
      (Mapa Táctico). Genera la utilidad `animate-file-blink`. */
   --animate-file-blink: file-blink 1.6s ease-in-out infinite;
+  /* Parpadeo verde↔teal de los archivos nuevos/creados. */
+  --animate-file-new: file-new 1.6s ease-in-out infinite;
 }
 
 @keyframes file-blink {
@@ -97,6 +99,17 @@
   50% {
     color: var(--cyan-primary);
     text-shadow: 0 0 10px rgba(80, 227, 194, 0.35);
+  }
+}
+
+@keyframes file-new {
+  0%, 100% {
+    color: var(--alert-green);
+    text-shadow: 0 0 12px rgba(69, 212, 131, 0.5);
+  }
+  50% {
+    color: var(--cyan-primary);
+    text-shadow: 0 0 12px rgba(80, 227, 194, 0.4);
   }
 }
 
@@ -399,8 +412,10 @@ html, body, #root {
   background: var(--bg-tertiary);
 }
 
-/* Lomo blanco para los archivos con cambios en git. */
-.map-node--mod::before {
+/* Lomo lateral: indica tipo de cambio en git. */
+.map-node--mod::before,
+.map-node--new::before,
+.map-node--deleted::before {
   content: '';
   position: absolute;
   left: -1px;
@@ -408,11 +423,15 @@ html, body, #root {
   bottom: 4px;
   width: 2.5px;
   border-radius: 2px;
-  background: var(--gold-primary);
 }
+/* Modificado: ámbar/gold */
+.map-node--mod::before { background: var(--gold-primary); }
+/* Nuevo/untracked: verde */
+.map-node--new::before { background: var(--alert-green); }
+/* Eliminado: rojo */
+.map-node--deleted::before { background: var(--alert-red); }
 
-/* Actividad en vivo: pulso ámbar↔teal del borde. Lo llevan el archivo
-   alertado y TODA su cadena de carpetas ancestro. */
+/* Actividad en vivo: pulso ámbar↔teal (archivos modificados). */
 @keyframes map-node-activity {
   0%, 100% {
     border-color: rgba(245, 166, 35, 0.55);
@@ -424,6 +443,19 @@ html, body, #root {
   }
 }
 .map-node--activity { animation: map-node-activity 1.6s ease-in-out infinite; }
+
+/* Actividad en vivo: pulso verde↔teal (archivos nuevos/creados). */
+@keyframes map-node-activity-new {
+  0%, 100% {
+    border-color: rgba(69, 212, 131, 0.6);
+    box-shadow: 0 0 14px rgba(69, 212, 131, 0.2);
+  }
+  50% {
+    border-color: rgba(80, 227, 194, 0.6);
+    box-shadow: 0 0 14px rgba(80, 227, 194, 0.2);
+  }
+}
+.map-node--activity--new { animation: map-node-activity-new 1.6s ease-in-out infinite; }
 
 .map-node__badge {
   margin-left: auto;

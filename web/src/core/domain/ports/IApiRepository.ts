@@ -1,0 +1,37 @@
+// PUERTO de salida: contrato que el núcleo necesita del adaptador HTTP.
+// La implementación concreta vive en infrastructure/api/ApiClient.ts.
+import type {
+  FileContent,
+  FileDiff,
+  FsListing,
+  GitSnapshot,
+  Project,
+  TermInfo,
+  TreeNode,
+} from '../project';
+
+export interface IApiRepository {
+  // Proyectos
+  listProjects(): Promise<Project[]>;
+  createProject(data: { name: string; path: string; cliCommand: string }): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
+  startProject(id: string): Promise<Project>;
+  stopProject(id: string): Promise<Project>;
+
+  // Git
+  getDiff(id: string): Promise<GitSnapshot>;
+  getFileDiff(id: string, path: string): Promise<FileDiff>;
+
+  // Árbol de archivos
+  getTree(id: string): Promise<TreeNode>;
+  getFile(id: string, path: string): Promise<FileContent>;
+  rawFileURL(id: string, path: string): string;
+
+  // Terminales
+  listTerminals(id: string): Promise<TermInfo[]>;
+  createTerminal(id: string, title?: string): Promise<TermInfo>;
+  closeTerminal(id: string, termId: string): Promise<void>;
+
+  // Explorador de filesystem
+  browse(path?: string): Promise<FsListing>;
+}

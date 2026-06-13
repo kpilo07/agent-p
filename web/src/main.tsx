@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
+import App from './presentation/App.tsx';
 import 'sileo/styles.css';
 import './index.css';
 
