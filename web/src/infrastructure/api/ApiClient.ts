@@ -2,6 +2,7 @@
 // Patrón: Singleton + Repository
 import type { IApiRepository } from '../../core/domain/ports/IApiRepository';
 import type {
+  ActivityEvent,
   FileContent,
   FileDiff,
   FsListing,
@@ -55,8 +56,34 @@ class ApiClient implements IApiRepository {
     return this.request(`/api/projects/${id}/stop`, { method: 'POST' });
   }
 
+  interruptAgent(id: string): Promise<void> {
+    return this.request(`/api/projects/${id}/interrupt`, { method: 'POST' });
+  }
+
   getDiff(id: string): Promise<GitSnapshot> {
     return this.request(`/api/projects/${id}/diff`);
+  }
+
+  gitCommit(id: string, message: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/commit`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  gitStash(id: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/stash`, { method: 'POST' });
+  }
+
+  gitDiscard(id: string, path?: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/discard`, {
+      method: 'POST',
+      body: JSON.stringify({ path: path ?? '' }),
+    });
+  }
+
+  getActivity(id: string, limit?: number): Promise<ActivityEvent[]> {
+    return this.request(`/api/projects/${id}/activity${limit ? `?limit=${limit}` : ''}`);
   }
 
   getFileDiff(id: string, path: string): Promise<FileDiff> {

@@ -24,6 +24,7 @@ export interface FileStat {
 }
 
 export interface GitSnapshot {
+  branch: string;
   diff: string;
   files: FileStat[] | null;
   additions: number;
@@ -38,8 +39,41 @@ export interface TermInfo {
   running: boolean;
 }
 
+/** Tipo de evento del timeline de actividad (espejo de domain.Activity* en Go). */
+export type ActivityKind =
+  | 'session_start'
+  | 'session_end'
+  | 'git_change'
+  | 'branch_switch'
+  | 'commit'
+  | 'stash'
+  | 'discard'
+  | 'interrupt';
+
+/** Entrada del timeline de actividad de un proyecto. */
+export interface ActivityEvent {
+  id: number;
+  projectId: string;
+  kind: ActivityKind;
+  message: string;
+  branch?: string;
+  additions?: number;
+  deletions?: number;
+  files?: number;
+  createdAt: string;
+}
+
 /** ID de la terminal principal (la del agente de IA). */
 export const AGENT_TERM_ID = 'agent';
+
+/** Terminal anclada como nodo en el Mapa Táctico (posición/tamaño en coords de flow). */
+export interface PinnedTerm {
+  termId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 // ── Tipos para el explorador de archivos ─────────────────────────
 

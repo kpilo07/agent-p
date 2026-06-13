@@ -30,6 +30,8 @@ type ProjectService struct {
 	terminal domain.TerminalService
 	fswatch  domain.FSWatcher
 	bus      domain.EventBus
+	activity domain.ActivityRepository
+	recorder domain.ActivityRecorder
 
 	sessMu       sync.Mutex
 	liveSessions map[string]int64 // projectID → sessionID de BD
@@ -43,6 +45,8 @@ func New(
 	terminal domain.TerminalService,
 	fswatch domain.FSWatcher,
 	bus domain.EventBus,
+	activity domain.ActivityRepository,
+	recorder domain.ActivityRecorder,
 ) *ProjectService {
 	return &ProjectService{
 		projects:     projects,
@@ -51,6 +55,8 @@ func New(
 		terminal:     terminal,
 		fswatch:      fswatch,
 		bus:          bus,
+		activity:     activity,
+		recorder:     recorder,
 		liveSessions: make(map[string]int64),
 	}
 }
@@ -91,6 +97,7 @@ func (s *ProjectService) StartProject(ctx context.Context, p domain.Project) err
 		s.liveSessions[p.ID] = id
 		s.sessMu.Unlock()
 	}
+	s.record(ctx, p.ID, domain.ActivitySessionStart, "Agente iniciado")
 	return nil
 }
 
@@ -108,6 +115,57 @@ func (s *ProjectService) IsRunning(projectID string) bool {
 	return s.terminal.Running(projectID, domain.AgentTermID)
 }
 
+// InterruptAgent envía Ctrl-C (0x03) al PTY del agente sin matar la sesión.
+func (s *ProjectService) InterruptAgent(projectID string) error {
+	if err := s.terminal.Write(projectID, domain.AgentTermID, []byte{0x03}); err != nil {
+		return err
+	}
+	s.record(context.Background(), projectID, domain.ActivityInterrupt, "Ctrl-C enviado al agente")
+	return nil
+}
+
+// ── Gobierno del repo (sobre el trabajo del agente) ──────────────
+
+func (s *ProjectService) GitCommit(ctx context.Context, projectID, message string) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.Commit(ctx, p.Path, message); err != nil {
+		return err
+	}
+	s.record(ctx, projectID, domain.ActivityCommit, "Commit: "+message)
+	return nil
+}
+
+func (s *ProjectService) GitStash(ctx context.Context, projectID string) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.Stash(ctx, p.Path); err != nil {
+		return err
+	}
+	s.record(ctx, projectID, domain.ActivityStash, "Cambios guardados en stash")
+	return nil
+}
+
+func (s *ProjectService) GitDiscard(ctx context.Context, projectID, file string) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.Discard(ctx, p.Path, file); err != nil {
+		return err
+	}
+	msg := "Cambios descartados (todos)"
+	if file != "" {
+		msg = "Cambios descartados: " + file
+	}
+	s.record(ctx, projectID, domain.ActivityDiscard, msg)
+	return nil
+}
+
 // EndDBSession cierra la sesión de BD del proyecto. Público para que el
 // composition root pueda invocarlo desde el callback OnSessionEnd.
 func (s *ProjectService) EndDBSession(ctx context.Context, projectID string) {
@@ -116,7 +174,16 @@ func (s *ProjectService) EndDBSession(ctx context.Context, projectID string) {
 	delete(s.liveSessions, projectID)
 	s.sessMu.Unlock()
 	if ok {
-		_ = s.sessions.EndSession(context.WithoutCancel(ctx), id)
+		uctx := context.WithoutCancel(ctx)
+		_ = s.sessions.EndSession(uctx, id)
+		s.record(uctx, projectID, domain.ActivitySessionEnd, "El proceso del agente terminó")
+	}
+}
+
+// record persiste y emite un evento de actividad (best-effort).
+func (s *ProjectService) record(ctx context.Context, projectID, kind, message string) {
+	if s.recorder != nil {
+		s.recorder.Record(ctx, domain.ActivityEvent{ProjectID: projectID, Kind: kind, Message: message})
 	}
 }
 
@@ -235,6 +302,12 @@ func (s *ProjectService) GetFile(_ context.Context, projectPath, filePath string
 
 func (s *ProjectService) ListSessions(ctx context.Context, projectID string) ([]domain.Session, error) {
 	return s.sessions.ListSessions(ctx, projectID)
+}
+
+// ── Timeline de actividad ────────────────────────────────────────
+
+func (s *ProjectService) ListActivity(ctx context.Context, projectID string, limit int) ([]domain.ActivityEvent, error) {
+	return s.activity.ListActivity(ctx, projectID, limit)
 }
 
 // ── Explorador de sistema de archivos ────────────────────────────

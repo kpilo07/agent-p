@@ -15,11 +15,14 @@ import {
   Controls,
   Handle,
   MiniMap,
+  NodeResizer,
   Panel,
   Position,
   ReactFlow,
+  useReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeProps,
   type NodeTypes,
 } from '@xyflow/react';
@@ -31,17 +34,27 @@ import { diffService } from '../../../core/use-cases/DiffService';
 import type { DiffRow } from '../../../core/domain/diff';
 
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
-import { selectFocusedProject, useStore, type FileStat } from '../../../infrastructure/store/store';
+import {
+  AGENT_TERM_ID,
+  selectFocusedProject,
+  useStore,
+  type FileStat,
+  type PinnedTerm,
+} from '../../../infrastructure/store/store';
 import { DiffRows } from '../shared/DiffView';
+import { TerminalView } from '../shared/TerminalView';
 import {
   IconChevronDown,
   IconChevronRight,
   IconFile,
   IconFolder,
   IconFolderOpen,
+  IconPinOff,
   IconSettings,
   IconLogo,
   IconRefresh,
+  IconTerminal,
+  IconTrash,
 } from '../ui/icons';
 
 // ── Configuración de fondo del mapa ─────────────────────────────
@@ -315,7 +328,97 @@ function RepoNode({ data }: NodeProps<MapNode>) {
   );
 }
 
-const nodeTypes: NodeTypes = { repo: RepoNode };
+// ── Nodo terminal anclado ───────────────────────────────────────
+
+interface TermNodeData extends Record<string, unknown> {
+  projectId: string;
+  termId: string;
+  title: string;
+}
+
+type TermNode = Node<TermNodeData>;
+
+function TerminalNode({ data }: NodeProps<TermNode>) {
+  const { projectId, termId, title } = data;
+  const isAgent = termId === AGENT_TERM_ID;
+
+  const popOut = () => {
+    useStore.getState().unpinTerm(projectId, termId);
+    useStore.getState().focusTerm(termId);
+    useStore.getState().setTerminalModalOpen(true);
+  };
+
+  const closeShell = async () => {
+    try {
+      await api.closeTerminal(projectId, termId);
+    } catch (err) {
+      useStore.getState().pushToast({ level: 'error', title: 'Terminal', message: (err as Error).message });
+    }
+  };
+
+  return (
+    <div className="map-term-node">
+      <NodeResizer
+        minWidth={260}
+        minHeight={150}
+        maxWidth={900}
+        maxHeight={640}
+        isVisible
+        lineClassName="map-term-node__resize-line"
+        handleClassName="map-term-node__resize-handle"
+      />
+      <Handle type="target" position={Position.Left} className="map-handle" />
+
+      {/* Cabecera: zona de arrastre (sin nodrag) + botones (con nodrag) */}
+      <div className="map-term-node__header">
+        <IconTerminal className="h-3.5 w-3.5 shrink-0 text-gold" />
+        <span className="hud-label shrink-0">{isAgent ? 'Agente' : 'Shell'}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-secondary">{title}</span>
+        <button
+          className="nodrag map-term-node__btn"
+          onClick={popOut}
+          title="Devolver a ventana (desanclar)"
+        >
+          <IconPinOff className="h-3.5 w-3.5" />
+        </button>
+        {!isAgent && (
+          <button
+            className="nodrag map-term-node__btn map-term-node__btn--danger"
+            onClick={closeShell}
+            title="Cerrar este shell"
+          >
+            <IconTrash className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Cuerpo: nodrag (selección de texto) + nowheel (scroll del xterm) */}
+      <div className="nodrag nowheel map-term-node__body">
+        <TerminalView projectId={projectId} termId={termId} fontSize={11} />
+      </div>
+    </div>
+  );
+}
+
+const nodeTypes: NodeTypes = { repo: RepoNode, terminal: TerminalNode };
+
+// Centra la cámara sobre una terminal anclada cuando cambia la señal de foco.
+// Debe vivir DENTRO de <ReactFlow> para acceder a su instancia.
+function PinnedFocuser({ projectId }: { projectId: string }) {
+  const rf = useReactFlow();
+  const focus = useStore((s) => s.pinnedFocus);
+  const pinned = useStore((s) => s.pinnedTerms[projectId]);
+
+  useEffect(() => {
+    if (!focus) return;
+    const p = pinned?.find((x) => x.termId === focus.termId);
+    if (!p) return;
+    rf.setCenter(p.x + p.w / 2, p.y + p.h / 2, { zoom: 1, duration: 600 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.seq]);
+
+  return null;
+}
 
 // El minimapa refleja el estado de cada nodo:
 // verde = nuevo, ámbar = modificado, gris = sin cambios.
@@ -337,6 +440,8 @@ export function NodeMap() {
   const alerts = useStore((s) => (focused ? s.fileAlerts[focused.id] : undefined));
   const expanded = useStore((s) => (focused ? s.expandedDirs[focused.id] : undefined));
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
+  const pinned = useStore((s) => (focused ? s.pinnedTerms[focused.id] : undefined));
+  const terminals = useStore((s) => (focused ? s.terminals[focused.id] : undefined));
 
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -356,7 +461,7 @@ export function NodeMap() {
   useEffect(() => {
     if (!bgMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target as Node)) {
+      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target as HTMLElement)) {
         setBgMenuOpen(false);
       }
     };
@@ -410,6 +515,45 @@ export function NodeMap() {
     return buildGraph(tree, focused.name, expanded ?? [], alerts ?? {}, gitByPath);
   }, [tree, focused?.id, focused?.name, expanded, alerts, snap?.files]);
 
+  // Nodos de las terminales ancladas (independientes del árbol del repo).
+  const termNodes = useMemo<TermNode[]>(() => {
+    if (!focused || !pinned?.length) return [];
+    const titleFor = (termId: string) =>
+      termId === AGENT_TERM_ID
+        ? focused.cliCommand || 'Agente'
+        : (terminals?.find((t) => t.id === termId)?.title ?? termId);
+    return pinned.map((p: PinnedTerm) => ({
+      id: `term:${p.termId}`,
+      type: 'terminal',
+      position: { x: p.x, y: p.y },
+      width: p.w,
+      height: p.h,
+      style: { width: p.w, height: p.h },
+      draggable: true,
+      selectable: true,
+      data: { projectId: focused.id, termId: p.termId, title: titleFor(p.termId) },
+    }));
+  }, [focused?.id, focused?.cliCommand, pinned, terminals]);
+
+  // Aplica al store los cambios de posición/tamaño de los nodos terminal
+  // (los nodos del árbol son fijos y se ignoran).
+  const onNodesChange = (changes: NodeChange[]) => {
+    if (!focused) return;
+    for (const c of changes) {
+      if (c.type === 'position' && c.position && c.id.startsWith('term:')) {
+        useStore.getState().updatePinned(focused.id, c.id.slice(5), {
+          x: c.position.x,
+          y: c.position.y,
+        });
+      } else if (c.type === 'dimensions' && c.dimensions && c.id.startsWith('term:')) {
+        useStore.getState().updatePinned(focused.id, c.id.slice(5), {
+          w: c.dimensions.width,
+          h: c.dimensions.height,
+        });
+      }
+    }
+  };
+
   if (!focused) return null;
 
   const alertEntries = Object.entries(alerts ?? {});
@@ -421,22 +565,26 @@ export function NodeMap() {
   const newFileCount = gitFiles.filter((f) => f.status?.includes('?') || f.status === 'A').length;
   const dirtyCount = gitFiles.length;
 
-  const onNodeClick = (_: React.MouseEvent, node: MapNode) => {
-    if (node.data.kind === 'dir') {
-      useStore.getState().toggleDir(focused.id, node.data.path);
-    } else if (node.data.kind === 'file') {
+  const onNodeClick = (_: React.MouseEvent, node: Node) => {
+    if (node.type !== 'repo') return;
+    const d = node.data as MapNodeData;
+    if (d.kind === 'dir') {
+      useStore.getState().toggleDir(focused.id, d.path);
+    } else if (d.kind === 'file') {
       hideHover();
-      useStore.getState().setSelectedFile(node.data.path);
-      useStore.getState().clearFileAlert(focused.id, node.data.path);
+      useStore.getState().setSelectedFile(d.path);
+      useStore.getState().clearFileAlert(focused.id, d.path);
     }
   };
 
   const POP_W = 460; // ancho del popover, para decidir el lado de anclaje
   const POP_H = 320; // alto máximo, para no salirse por abajo
 
-  const onNodeMouseEnter = (event: React.MouseEvent, node: MapNode) => {
+  const onNodeMouseEnter = (event: React.MouseEvent, node: Node) => {
+    if (node.type !== 'repo') return;
+    const d = node.data as MapNodeData;
     // Solo archivos con cambios sin commit tienen algo que enseñar.
-    if (node.data.kind !== 'file' || !node.data.stat) return;
+    if (d.kind !== 'file' || !d.stat) return;
     const host = sectionRef.current;
     const el = event.currentTarget as HTMLElement | null;
     if (!host || !el?.getBoundingClientRect) return;
@@ -450,9 +598,9 @@ export function NodeMap() {
     }
     const y = Math.min(Math.max(8, rect.top - hostRect.top), Math.max(8, hostRect.height - POP_H - 8));
 
-    const path = node.data.path;
+    const path = d.path;
     hoverPathRef.current = path;
-    setHover({ path, stat: node.data.stat, x, y });
+    setHover({ path, stat: d.stat, x, y });
 
     const cached = diffCache.current.get(path);
     if (cached) {
@@ -488,9 +636,10 @@ export function NodeMap() {
       {bgCfg.pattern === 'zigzag' && <div className="map-bg-zigzag" />}
 
       <ReactFlow
-        nodes={nodes}
+        nodes={[...nodes, ...termNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
         onNodeMouseEnter={onNodeMouseEnter}
         onNodeMouseLeave={hideHover}
@@ -508,6 +657,7 @@ export function NodeMap() {
         onlyRenderVisibleElements
         style={{ background: 'transparent' }}
       >
+        <PinnedFocuser projectId={focused.id} />
         {bgVariant !== null && (
           <Background
             variant={bgVariant}

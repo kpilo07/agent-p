@@ -155,3 +155,60 @@ export const IconSettings = (p: IconProps) => (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
   </Svg>
 );
+
+// Anclar (chincheta) — fijar la terminal al tablero.
+export const IconPin = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 17v5" />
+    <path d="M9 10.8V4h6v6.8a2 2 0 0 0 .6 1.4l1.4 1.4H7l1.4-1.4a2 2 0 0 0 .6-1.4Z" />
+  </Svg>
+);
+
+// Desanclar / devolver a ventana (sacar del tablero).
+export const IconPinOff = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m3 3 18 18" />
+    <path d="M12 17v5" />
+    <path d="M15 4v6.8a2 2 0 0 0 .6 1.4l1.4 1.4H10" />
+    <path d="M9 4h6" />
+  </Svg>
+);
+
+// Pulso de actividad (timeline).
+export const IconActivity = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12h4l3 8 4-16 3 8h4" />
+  </Svg>
+);
+
+// Detener / interrumpir (octágono).
+export const IconStop = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8.6 3h6.8L21 8.6v6.8L15.4 21H8.6L3 15.4V8.6L8.6 3Z" />
+    <path d="M9.5 9.5h5v5h-5z" />
+  </Svg>
+);
+
+// Confirmación / commit.
+export const IconCheck = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 6 9 17l-5-5" />
+  </Svg>
+);
+
+// Stash (archivar / guardar a un lado).
+export const IconArchive = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="4" rx="1" />
+    <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </Svg>
+);
+
+// Commit de git (nodo en una línea).
+export const IconGitCommit = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="M3 12h5.5M15.5 12H21" />
+  </Svg>
+);

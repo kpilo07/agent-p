@@ -25,6 +25,7 @@ const (
 	EventFSChange     = "fs_change"
 	EventNotification = "notification"
 	EventSessionState = "session_state"
+	EventActivity     = "activity"
 )
 
 // Tipos de comandos entrantes (UI → backend).
@@ -66,6 +67,10 @@ func (EventFactory) FSChange(path, op string) Event {
 
 func (EventFactory) Notification(projectID string, payload any) Event {
 	return Event{Type: EventNotification, ProjectID: projectID, Payload: payload}
+}
+
+func (EventFactory) Activity(projectID string, payload any) Event {
+	return Event{Type: EventActivity, ProjectID: projectID, Payload: payload}
 }
 
 func (EventFactory) SessionState(projectID, termID string, running bool, title string) Event {

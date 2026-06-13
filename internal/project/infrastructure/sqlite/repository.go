@@ -33,6 +33,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
+
+CREATE TABLE IF NOT EXISTS activity (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	kind       TEXT NOT NULL,
+	message    TEXT NOT NULL DEFAULT '',
+	branch     TEXT NOT NULL DEFAULT '',
+	additions  INTEGER NOT NULL DEFAULT 0,
+	deletions  INTEGER NOT NULL DEFAULT 0,
+	files      INTEGER NOT NULL DEFAULT 0,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_project ON activity(project_id, id DESC);
 `
 
 // Store implementa ProjectRepository y SessionRepository sobre SQLite.
@@ -181,8 +195,50 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]domain.Se
 	return sessions, rows.Err()
 }
 
+// ── domain.ActivityRepository ────────────────────────────────────
+
+func (s *Store) CreateActivity(ctx context.Context, ev domain.ActivityEvent) (domain.ActivityEvent, error) {
+	if ev.CreatedAt.IsZero() {
+		ev.CreatedAt = time.Now().UTC()
+	}
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO activity (project_id, kind, message, branch, additions, deletions, files, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		ev.ProjectID, ev.Kind, ev.Message, ev.Branch, ev.Additions, ev.Deletions, ev.Files, ev.CreatedAt)
+	if err != nil {
+		return domain.ActivityEvent{}, fmt.Errorf("sqlite: create activity: %w", err)
+	}
+	ev.ID, _ = res.LastInsertId()
+	return ev, nil
+}
+
+func (s *Store) ListActivity(ctx context.Context, projectID string, limit int) ([]domain.ActivityEvent, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, project_id, kind, message, branch, additions, deletions, files, created_at
+		 FROM activity WHERE project_id = ? ORDER BY id DESC LIMIT ?`, projectID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: list activity: %w", err)
+	}
+	defer rows.Close()
+
+	events := []domain.ActivityEvent{}
+	for rows.Next() {
+		var e domain.ActivityEvent
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Kind, &e.Message, &e.Branch,
+			&e.Additions, &e.Deletions, &e.Files, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
 // Compile-time checks.
 var (
-	_ domain.ProjectRepository = (*Store)(nil)
-	_ domain.SessionRepository = (*Store)(nil)
+	_ domain.ProjectRepository  = (*Store)(nil)
+	_ domain.SessionRepository  = (*Store)(nil)
+	_ domain.ActivityRepository = (*Store)(nil)
 )

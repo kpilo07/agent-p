@@ -24,6 +24,7 @@ import (
 
 	agentspa "agent-p"
 	"agent-p/internal/project/domain"
+	"agent-p/internal/project/infrastructure/activity"
 	"agent-p/internal/project/infrastructure/fswatch"
 	"agent-p/internal/project/infrastructure/gitwatch"
 	"agent-p/internal/project/infrastructure/hub"
@@ -67,13 +68,14 @@ func run() error {
 	h := hub.New(log)
 	go h.Run(ctx)
 
+	recorder := activity.New(log, store, h)
 	manager := termadapter.New(log, h)
-	gitWatcher := gitwatch.New(log, h, *interval)
+	gitWatcher := gitwatch.New(log, h, recorder, *interval)
 	fsWatcher := fswatch.New(log, h)
 
 	// ── Capa de servicio (casos de uso del bounded context) ──────
 
-	svc := service.New(store, store, gitWatcher, manager, fsWatcher, h)
+	svc := service.New(store, store, gitWatcher, manager, fsWatcher, h, store, recorder)
 
 	// Limpiar sesiones huérfanas del arranque anterior.
 	if err := svc.InitSessions(ctx); err != nil {

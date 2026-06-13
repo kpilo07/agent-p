@@ -970,6 +970,84 @@ html, body, #root {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   TERMINAL NODE — terminal anclada como nodo del Mapa Táctico
+   ═══════════════════════════════════════════════════════════════ */
+.map-term-node {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  /* Sin overflow:hidden — recortaría los handles del NodeResizer, que se
+     montan sobre el borde. El redondeo se aplica en cabecera y cuerpo. */
+  border: 1px solid var(--border-active);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.map-term-node__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 5px 8px 5px 10px;
+  border-bottom: 1px solid var(--border-secondary);
+  background: rgba(0, 0, 0, 0.4);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  cursor: grab;
+}
+.map-term-node__header:active { cursor: grabbing; }
+
+.map-term-node__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.map-term-node__btn:hover { color: var(--cyan-primary); background: var(--hover-accent); }
+.map-term-node__btn--danger:hover { color: var(--alert-red); }
+
+.map-term-node__body {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* Borde/handles del NodeResizer. Discretos pero SIEMPRE visibles para que se
+   descubran y se puedan agarrar; se intensifican al pasar el ratón. z-index
+   alto para quedar SOBRE la cabecera y el xterm (hermanos que se pintan
+   después) y poder agarrarse en cualquier borde, incluido el ancho. */
+.map-term-node__resize-line {
+  border-color: var(--border-active) !important;
+  border-width: 2px !important;
+  opacity: 0.35;
+  z-index: 10;
+  transition: opacity 0.15s ease;
+}
+.map-term-node:hover .map-term-node__resize-line { opacity: 0.9; }
+.map-term-node__resize-handle {
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 3px !important;
+  background: var(--cyan-primary) !important;
+  border: 1.5px solid var(--bg-secondary) !important;
+  opacity: 0.55;
+  z-index: 11;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.map-term-node:hover .map-term-node__resize-handle { opacity: 1; }
+.map-term-node__resize-handle:hover { transform: scale(1.25); }
+
+/* ═══════════════════════════════════════════════════════════════
    DIFF VIEWER — vista estilo editor con gutters de nº de línea
    ═══════════════════════════════════════════════════════════════ */
 .diff-row {

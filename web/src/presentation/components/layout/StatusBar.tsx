@@ -5,7 +5,8 @@ import { useState } from 'react';
 
 import { projectService } from '../../../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
-import { IconBell, IconChevronDown, IconLogo } from '../ui/icons';
+import { useGit } from '../../hooks/useGit';
+import { IconBell, IconChevronDown, IconGitBranch, IconLogo } from '../ui/icons';
 
 const WS_STATUS_STYLE = {
   open: { cls: 'notification-pulse--green', label: 'LINK ACTIVO' },
@@ -21,6 +22,9 @@ export function StatusBar() {
   const unread = useStore((s) => s.unread);
 
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const git = useGit(focused?.id ?? null);
+  const branch = git?.branch;
 
   const activeProjects = projects.filter((p) => activeIds.includes(p.id));
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
@@ -41,6 +45,15 @@ export function StatusBar() {
         {focused && (
           <span className="hud-label flex min-w-0 items-center gap-1.5">
             FOCO <span className="hud-value truncate">{focused.name}</span>
+          </span>
+        )}
+        {focused && branch && (
+          <span
+            className="hud-label flex min-w-0 shrink items-center gap-1.5"
+            title={`Rama actual: ${branch}`}
+          >
+            <IconGitBranch className="h-3.5 w-3.5 shrink-0 text-gold" />
+            <span className="hud-value truncate">{branch}</span>
           </span>
         )}
       </div>

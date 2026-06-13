@@ -48,6 +48,25 @@ type GitService interface {
 	UnwatchAll()
 	Take(ctx context.Context, path string) (*GitSnapshot, error)
 	TakeFile(ctx context.Context, dir, file string) (string, error)
+
+	// Operaciones de gobierno del repo (mutan el repo, no el código fuente
+	// desde la UI: consolidan o revierten el trabajo del agente).
+	Commit(ctx context.Context, path, message string) error
+	Stash(ctx context.Context, path string) error
+	// Discard revierte el working tree. Si file == "" descarta todos los cambios.
+	Discard(ctx context.Context, path, file string) error
+}
+
+// ActivityRepository abstrae la persistencia del timeline de actividad.
+type ActivityRepository interface {
+	CreateActivity(ctx context.Context, ev ActivityEvent) (ActivityEvent, error)
+	ListActivity(ctx context.Context, projectID string, limit int) ([]ActivityEvent, error)
+}
+
+// ActivityRecorder registra un evento de actividad (lo persiste y lo emite a la
+// UI). Es un puerto de salida usado por el service y por los watchers.
+type ActivityRecorder interface {
+	Record(ctx context.Context, ev ActivityEvent)
 }
 
 // TerminalService abstrae la gestión de pseudo-terminales (PTY) por proyecto.
@@ -89,6 +108,15 @@ type ProjectUseCases interface {
 	StartProject(ctx context.Context, p Project) error
 	StopProject(ctx context.Context, projectID string) error
 	IsRunning(projectID string) bool
+	InterruptAgent(projectID string) error
+
+	// Acciones de gobierno del repo (sobre el trabajo del agente)
+	GitCommit(ctx context.Context, projectID, message string) error
+	GitStash(ctx context.Context, projectID string) error
+	GitDiscard(ctx context.Context, projectID, file string) error
+
+	// Timeline de actividad
+	ListActivity(ctx context.Context, projectID string, limit int) ([]ActivityEvent, error)
 
 	// Terminales
 	ListTerminals(projectID string) []TermInfo

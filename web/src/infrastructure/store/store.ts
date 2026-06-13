@@ -5,14 +5,32 @@
 import { sileo } from 'sileo';
 import { create } from 'zustand';
 
-import type { GitSnapshot, Project, TermInfo, FileStat } from '../../core/domain/project';
+import type {
+  ActivityEvent,
+  GitSnapshot,
+  PinnedTerm,
+  Project,
+  TermInfo,
+  FileStat,
+} from '../../core/domain/project';
 import { AGENT_TERM_ID } from '../../core/domain/project';
 import type { Toast, ToastLevel, WsStatus, ServerEvent } from '../../core/domain/events';
 import { storageService } from '../storage/StorageService';
 
 // Re-exportamos los tipos del dominio para que los componentes tengan un
 // punto de importación estable (se puede cambiar la fuente sin tocar imports).
-export type { Project, GitSnapshot, TermInfo, FileStat, Toast, ToastLevel, WsStatus, ServerEvent };
+export type {
+  Project,
+  GitSnapshot,
+  TermInfo,
+  FileStat,
+  ActivityEvent,
+  PinnedTerm,
+  Toast,
+  ToastLevel,
+  WsStatus,
+  ServerEvent,
+};
 export { AGENT_TERM_ID };
 
 // ── Estado interno del store ─────────────────────────────────────
@@ -23,12 +41,16 @@ interface AppState {
   activeIds: string[];
   unread: Record<string, number>;
   git: Record<string, GitSnapshot>;
+  activity: Record<string, ActivityEvent[]>;
   recentIds: string[];
   wsStatus: WsStatus;
   projectsModalOpen: boolean;
   diffModalOpen: boolean;
+  activityModalOpen: boolean;
   terminals: Record<string, TermInfo[]>;
   focusedTermId: string;
+  pinnedTerms: Record<string, PinnedTerm[]>;
+  pinnedFocus: { termId: string; seq: number } | null;
   expandedDirs: Record<string, string[]>;
   fileAlerts: Record<string, Record<string, { stamp: number; op: string }>>;
   treeVersion: Record<string, number>;
@@ -42,11 +64,17 @@ interface AppState {
   focusProject: (id: string | null) => void;
   markActive: (id: string, active: boolean) => void;
   setGit: (projectId: string, snap: GitSnapshot) => void;
+  setActivity: (projectId: string, events: ActivityEvent[]) => void;
   setWsStatus: (status: WsStatus) => void;
   setProjectsModalOpen: (open: boolean) => void;
   setDiffModalOpen: (open: boolean) => void;
+  setActivityModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
+  pinTerm: (projectId: string, termId: string) => void;
+  unpinTerm: (projectId: string, termId: string) => void;
+  updatePinned: (projectId: string, termId: string, patch: Partial<PinnedTerm>) => void;
+  focusPinned: (termId: string) => void;
   toggleDir: (projectId: string, path: string) => void;
   clearFileAlert: (projectId: string, path: string) => void;
   setSelectedFile: (path: string | null) => void;
@@ -76,12 +104,16 @@ export const useStore = create<AppState>((set, get) => ({
   activeIds: [],
   unread: {},
   git: {},
+  activity: {},
   recentIds: storageService.loadRecentIds(),
   wsStatus: 'connecting',
   projectsModalOpen: false,
   diffModalOpen: false,
+  activityModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
+  pinnedTerms: storageService.loadPinnedTerms(),
+  pinnedFocus: null,
   expandedDirs: {},
   fileAlerts: {},
   treeVersion: {},
@@ -138,16 +170,57 @@ export const useStore = create<AppState>((set, get) => ({
 
   setGit: (projectId, snap) => set((s) => ({ git: { ...s.git, [projectId]: snap } })),
 
+  setActivity: (projectId, events) =>
+    set((s) => ({ activity: { ...s.activity, [projectId]: events } })),
+
   setWsStatus: (wsStatus) => set({ wsStatus }),
 
   setProjectsModalOpen: (projectsModalOpen) => set({ projectsModalOpen }),
 
   setDiffModalOpen: (diffModalOpen) => set({ diffModalOpen }),
 
+  setActivityModalOpen: (activityModalOpen) => set({ activityModalOpen }),
+
   setTerminals: (projectId, terms) =>
     set((s) => ({ terminals: { ...s.terminals, [projectId]: terms } })),
 
   focusTerm: (focusedTermId) => set({ focusedTermId }),
+
+  pinTerm: (projectId, termId) =>
+    set((s) => {
+      const list = s.pinnedTerms[projectId] ?? [];
+      if (list.some((p) => p.termId === termId)) {
+        // Ya anclada: solo la enfocamos.
+        return { pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };
+      }
+      const n = list.length;
+      const pin: PinnedTerm = { termId, x: 300 + n * 48, y: 24 + n * 48, w: 380, h: 240 };
+      const pinnedTerms = { ...s.pinnedTerms, [projectId]: [...list, pin] };
+      storageService.savePinnedTerms(pinnedTerms);
+      return { pinnedTerms, pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };
+    }),
+
+  unpinTerm: (projectId, termId) =>
+    set((s) => {
+      const list = s.pinnedTerms[projectId];
+      if (!list?.some((p) => p.termId === termId)) return s;
+      const pinnedTerms = { ...s.pinnedTerms, [projectId]: list.filter((p) => p.termId !== termId) };
+      storageService.savePinnedTerms(pinnedTerms);
+      return { pinnedTerms };
+    }),
+
+  updatePinned: (projectId, termId, patch) =>
+    set((s) => {
+      const list = s.pinnedTerms[projectId];
+      if (!list) return s;
+      const next = list.map((p) => (p.termId === termId ? { ...p, ...patch } : p));
+      const pinnedTerms = { ...s.pinnedTerms, [projectId]: next };
+      storageService.savePinnedTerms(pinnedTerms);
+      return { pinnedTerms };
+    }),
+
+  focusPinned: (termId) =>
+    set((s) => ({ pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } })),
 
   toggleDir: (projectId, path) =>
     set((s) => {
@@ -221,6 +294,17 @@ export const useStore = create<AppState>((set, get) => ({
         break;
       }
 
+      case 'activity': {
+        if (!projectId) return;
+        const ev = evt.payload as ActivityEvent;
+        set((s) => {
+          const prev = s.activity[projectId] ?? [];
+          if (prev.some((e) => e.id === ev.id)) return s;
+          return { activity: { ...s.activity, [projectId]: [ev, ...prev].slice(0, 200) } };
+        });
+        break;
+      }
+
       case 'notification': {
         const p = (evt.payload ?? {}) as {
           level?: ToastLevel;
@@ -253,7 +337,20 @@ export const useStore = create<AppState>((set, get) => ({
             !running && s.focusedId === projectId && s.focusedTermId === termId
               ? { focusedTermId: AGENT_TERM_ID }
               : {};
-          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix };
+          // Si la sesión terminó, desanclar su nodo del tablero.
+          let pinnedFix = {};
+          if (!running) {
+            const list = s.pinnedTerms[projectId];
+            if (list?.some((p) => p.termId === termId)) {
+              const pinnedTerms = {
+                ...s.pinnedTerms,
+                [projectId]: list.filter((p) => p.termId !== termId),
+              };
+              storageService.savePinnedTerms(pinnedTerms);
+              pinnedFix = { pinnedTerms };
+            }
+          }
+          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix, ...pinnedFix };
         });
 
         if (termId === AGENT_TERM_ID) {

@@ -5,7 +5,15 @@
 // de la StatusBar (esquina inferior derecha).
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import { AGENT_TERM_ID, useStore, type TermInfo } from '../../../infrastructure/store/store';
-import { IconFolder, IconGitBranch, IconPlus, IconSearch, IconTerminal } from '../ui/icons';
+import {
+  IconActivity,
+  IconFolder,
+  IconGitBranch,
+  IconPlus,
+  IconSearch,
+  IconStop,
+  IconTerminal,
+} from '../ui/icons';
 
 const ghostBtn =
   'relative flex items-center justify-center rounded-lg p-2 text-muted transition-all duration-200 hover:bg-[var(--hover-accent)] hover:text-gold';
@@ -21,12 +29,38 @@ export function Toolbar() {
   const terminals = useStore((s) =>
     s.focusedId ? (s.terminals[s.focusedId] ?? NO_TERMS) : NO_TERMS,
   );
+  const pinned = useStore((s) => (s.focusedId ? s.pinnedTerms[s.focusedId] : undefined));
+  const isPinned = (termId: string) => pinned?.some((p) => p.termId === termId) ?? false;
 
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
   const dirty = (snap?.files?.length ?? 0) > 0;
+  const agentRunning = terminals.some((t) => t.id === AGENT_TERM_ID && t.running);
 
-  // Clic en una consola del grupo: pasa a ser LA terminal visible en su modal.
+  const interruptAgent = async () => {
+    if (!focusedId) return;
+    try {
+      await api.interruptAgent(focusedId);
+      useStore.getState().pushToast({
+        level: 'info',
+        title: 'Agente',
+        message: 'Ctrl-C enviado al agente',
+      });
+    } catch (err) {
+      useStore.getState().pushToast({
+        level: 'error',
+        title: 'Interrumpir',
+        message: (err as Error).message,
+      });
+    }
+  };
+
+  // Clic en una consola del grupo: si está anclada al tablero, centra la cámara
+  // en su nodo; si no, la abre en su modal.
   const openTerm = (termId: string) => {
+    if (isPinned(termId)) {
+      useStore.getState().focusPinned(termId);
+      return;
+    }
     useStore.getState().focusTerm(termId);
     useStore.getState().setTerminalModalOpen(true);
   };
@@ -90,6 +124,26 @@ export function Toolbar() {
             )}
           </button>
 
+          {/* Timeline de actividad del proyecto */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setActivityModalOpen(true)}
+            title="Actividad del proyecto"
+          >
+            <IconActivity className="h-4.5 w-4.5" />
+          </button>
+
+          {/* Interrumpir al agente (Ctrl-C) — solo si está en ejecución */}
+          {agentRunning && (
+            <button
+              className={`${ghostBtn} hover:!text-alert-red`}
+              onClick={interruptAgent}
+              title="Interrumpir agente · Ctrl-C"
+            >
+              <IconStop className="h-4.5 w-4.5" />
+            </button>
+          )}
+
           {/* Nueva consola en el grupo */}
           <button className={ghostBtn} onClick={newTerminal} title="Nueva terminal">
             <IconPlus className="h-4.5 w-4.5" />
@@ -99,21 +153,33 @@ export function Toolbar() {
           {terminals.length > 0 && (
             <>
               <span className="my-1 h-px w-4 bg-[var(--border-primary)]" />
-              {terminals.map((t, i) => (
-                <button
-                  key={t.id}
-                  className={`${ghostBtn} ${
-                    t.id === focusedTermId ? 'bg-[var(--hover-accent)] !text-gold' : ''
-                  }`}
-                  onClick={() => openTerm(t.id)}
-                  title={t.id === AGENT_TERM_ID ? `Agente · ${t.title}` : t.title}
-                >
-                  <IconTerminal className="h-4.5 w-4.5" />
-                  <span className="absolute right-0.5 -bottom-0.5 font-mono text-[8px] font-bold text-secondary">
-                    {t.id === AGENT_TERM_ID ? 'A' : i}
-                  </span>
-                </button>
-              ))}
+              {terminals.map((t, i) => {
+                const pinnedHere = isPinned(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    className={`${ghostBtn} ${
+                      !pinnedHere && t.id === focusedTermId ? 'bg-[var(--hover-accent)] !text-gold' : ''
+                    } ${pinnedHere ? '!text-cyan' : ''}`}
+                    onClick={() => openTerm(t.id)}
+                    title={
+                      pinnedHere
+                        ? `${t.id === AGENT_TERM_ID ? 'Agente' : t.title} · anclada al tablero (clic para localizar)`
+                        : t.id === AGENT_TERM_ID
+                          ? `Agente · ${t.title}`
+                          : t.title
+                    }
+                  >
+                    <IconTerminal className="h-4.5 w-4.5" />
+                    <span className="absolute right-0.5 -bottom-0.5 font-mono text-[8px] font-bold text-secondary">
+                      {t.id === AGENT_TERM_ID ? 'A' : i}
+                    </span>
+                    {pinnedHere && (
+                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-cyan" />
+                    )}
+                  </button>
+                );
+              })}
             </>
           )}
         </>

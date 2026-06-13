@@ -14,6 +14,7 @@ import { StatusBar } from './components/layout/StatusBar';
 import { ProjectsModal } from './components/shared/ProjectsModal';
 import { TerminalModal } from './components/shared/TerminalModal';
 import { DiffModal } from './components/shared/DiffModal';
+import { ActivityModal } from './components/shared/ActivityModal';
 import { FileViewerModal } from './components/shared/FileViewerModal';
 import { FileSearchModal } from './components/shared/FileSearchModal';
 
@@ -35,6 +36,7 @@ projectService.setStore({
 export default function App() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
+  const activityOpen = useStore((s) => s.activityModalOpen);
   const projectsOpen = useStore((s) => s.projectsModalOpen);
   const terminalOpen = useStore((s) => s.terminalModalOpen);
   const selectedFile = useStore((s) => s.selectedFile);
@@ -96,6 +98,7 @@ export default function App() {
       <Toolbar />
       {projectsOpen && <ProjectsModal />}
       {diffOpen && <DiffModal />}
+      {activityOpen && focused && <ActivityModal />}
       {terminalOpen && focused && <TerminalModal />}
       {searchOpen && focused && <FileSearchModal />}
       {selectedFile && <FileViewerModal />}

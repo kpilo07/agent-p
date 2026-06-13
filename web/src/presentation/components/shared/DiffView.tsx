@@ -9,7 +9,7 @@ import type { DiffRow } from '../../../core/domain/diff';
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
 const statusTag = (status: string) => diffService.statusTag(status);
 import type { GitSnapshot } from '../../../infrastructure/store/store';
-import { IconChevronDown, IconChevronRight } from '../ui/icons';
+import { IconChevronDown, IconChevronRight, IconTrash } from '../ui/icons';
 
 // ── Filas de un archivo ─────────────────────────────────────────
 
@@ -42,7 +42,14 @@ export function DiffRows({ rows }: { rows: DiffRow[] }) {
 
 // ── Acordeón de archivos del snapshot ───────────────────────────
 
-export function DiffFileList({ snap }: { snap?: GitSnapshot }) {
+export function DiffFileList({
+  snap,
+  onDiscardFile,
+}: {
+  snap?: GitSnapshot;
+  /** Si se provee, muestra un botón para descartar los cambios de cada archivo. */
+  onDiscardFile?: (path: string) => void;
+}) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const diffFiles = useMemo(() => (snap?.diff ? parseDiff(snap.diff) : []), [snap?.diff]);
@@ -92,22 +99,33 @@ export function DiffFileList({ snap }: { snap?: GitSnapshot }) {
         return (
           <div key={file.path} className="border-b border-[var(--border-secondary)]">
             {/* Cabecera del acordeón */}
-            <button
-              className="diff-file-header w-full cursor-pointer text-left hover:bg-[var(--hover-accent)]"
-              onClick={() => toggle(file.path)}
-            >
-              {isOpen ? (
-                <IconChevronDown className="h-3.5 w-3.5 text-muted" />
-              ) : (
-                <IconChevronRight className="h-3.5 w-3.5 text-muted" />
-              )}
-              <span className={`gotham-tag ${tag.cls} shrink-0`}>{tag.label}</span>
-              <span className="min-w-0 flex-1 truncate">{file.path}</span>
-              <span className="shrink-0 font-mono text-[10px] font-semibold">
+            <div className="diff-file-header group flex w-full items-center hover:bg-[var(--hover-accent)]">
+              <button
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                onClick={() => toggle(file.path)}
+              >
+                {isOpen ? (
+                  <IconChevronDown className="h-3.5 w-3.5 text-muted" />
+                ) : (
+                  <IconChevronRight className="h-3.5 w-3.5 text-muted" />
+                )}
+                <span className={`gotham-tag ${tag.cls} shrink-0`}>{tag.label}</span>
+                <span className="min-w-0 flex-1 truncate">{file.path}</span>
+              </button>
+              <span className="shrink-0 pl-2 font-mono text-[10px] font-semibold">
                 <span className="text-alert-green">+{file.additions}</span>{' '}
                 <span className="text-alert-red">−{file.deletions}</span>
               </span>
-            </button>
+              {onDiscardFile && (
+                <button
+                  className="ml-2 shrink-0 cursor-pointer rounded p-1 text-muted opacity-0 transition-all hover:bg-[var(--hover-accent)] hover:text-alert-red group-hover:opacity-100"
+                  onClick={() => onDiscardFile(file.path)}
+                  title={`Descartar cambios de ${file.path}`}
+                >
+                  <IconTrash className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
             {/* Cuerpo: diff estilo editor */}
             {isOpen && (

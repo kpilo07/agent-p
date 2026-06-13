@@ -2,13 +2,12 @@
 // grupo de consolas de la Toolbar y muestra ÚNICAMENTE la terminal
 // seleccionada (focusedTermId); el PTY sigue vivo en el backend y el
 // scrollback se repinta vía replay al abrir.
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
-
+//
+// Desde aquí se puede ANCLAR la terminal al Mapa Táctico (vive como nodo en el
+// tablero en vez de en el modal). El render de la terminal (TerminalView) está
+// desacoplado de la sesión, así que anclar = montar el mismo (projectId, termId)
+// en otro contenedor sin perder nada.
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
-import { wsClient } from '../../../infrastructure/ws/WsClient';
 import {
   AGENT_TERM_ID,
   selectFocusedProject,
@@ -16,27 +15,10 @@ import {
   type TermInfo,
 } from '../../../infrastructure/store/store';
 import { ModalShell } from '../ui/ModalShell';
-import { IconClose, IconTerminal, IconTrash } from '../ui/icons';
+import { TerminalView } from './TerminalView';
+import { IconClose, IconPin, IconTerminal, IconTrash } from '../ui/icons';
 
 const NO_TERMS: TermInfo[] = [];
-
-const XTERM_THEME = {
-  background: 'rgba(0, 0, 0, 0)', // translúcido: el panel pone el tinte
-  foreground: '#ededed',
-  cursor: '#ededed',
-  cursorAccent: '#000000',
-  selectionBackground: 'rgba(255, 255, 255, 0.22)',
-  black: '#111111',
-  brightBlack: '#6b6b6b',
-  red: '#ff5f57',
-  green: '#45d483',
-  yellow: '#f5a623',
-  blue: '#4e9eff',
-  magenta: '#c084fc',
-  cyan: '#50e3c2',
-  white: '#ededed',
-  brightWhite: '#ffffff',
-};
 
 export function TerminalModal() {
   const focused = useStore(selectFocusedProject);
@@ -56,6 +38,11 @@ export function TerminalModal() {
   const title = isAgent
     ? focused.cliCommand || 'Agente'
     : (terminals.find((t) => t.id === termId)?.title ?? termId);
+
+  const pinToBoard = () => {
+    useStore.getState().pinTerm(focused.id, termId);
+    useStore.getState().setTerminalModalOpen(false);
+  };
 
   const closeShell = async () => {
     try {
@@ -83,6 +70,13 @@ export function TerminalModal() {
               <span className="hud-label truncate">· {focused.name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <button
+                className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
+                onClick={pinToBoard}
+                title="Anclar al tablero (Mapa Táctico)"
+              >
+                <IconPin className="h-3.5 w-3.5" />
+              </button>
               {!isAgent && (
                 <button
                   className="btn-tactical btn-tactical--danger flex items-center justify-center p-1.5"
@@ -108,54 +102,4 @@ export function TerminalModal() {
       )}
     </ModalShell>
   );
-}
-
-// ── Una instancia de xterm conectada a su stream (projectId, termId) ──
-
-export function TerminalView({ projectId, termId }: { projectId: string; termId: string }) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const wsOpen = useStore((s) => s.wsStatus === 'open');
-
-  useEffect(() => {
-    const term = new Terminal({
-      cursorBlink: true,
-      fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-      fontSize: 13,
-      theme: XTERM_THEME,
-      allowTransparency: true,
-      scrollback: 5000,
-      allowProposedApi: true,
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current!);
-    fit.fit();
-
-    term.onData((data) => wsClient.sendInput(projectId, termId, data));
-    term.onResize(({ cols, rows }) => wsClient.sendResize(projectId, termId, cols, rows));
-
-    const unsubscribe = wsClient.subscribeTerminal(projectId, termId, (bytes, isReplay) => {
-      if (isReplay) term.reset();
-      term.write(bytes);
-    });
-
-    wsClient.sendResize(projectId, termId, term.cols, term.rows);
-
-    const observer = new ResizeObserver(() => fit.fit());
-    observer.observe(hostRef.current!);
-
-    return () => {
-      observer.disconnect();
-      unsubscribe();
-      term.dispose();
-    };
-  }, [projectId, termId]);
-
-  // Attach al montar y re-attach tras cada reconexión del WS (el backend
-  // responde con el replay del scrollback de ESTA terminal).
-  useEffect(() => {
-    wsClient.attach(projectId, termId);
-  }, [projectId, termId, wsOpen]);
-
-  return <div ref={hostRef} className="terminal-host absolute inset-0" />;
 }

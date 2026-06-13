@@ -39,6 +39,10 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	mux.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
 	mux.HandleFunc("POST /api/projects/{id}/start", s.handleStartProject)
 	mux.HandleFunc("POST /api/projects/{id}/stop", s.handleStopProject)
+	mux.HandleFunc("POST /api/projects/{id}/interrupt", s.handleInterruptProject)
+	mux.HandleFunc("POST /api/projects/{id}/git/commit", s.handleGitCommit)
+	mux.HandleFunc("POST /api/projects/{id}/git/stash", s.handleGitStash)
+	mux.HandleFunc("POST /api/projects/{id}/git/discard", s.handleGitDiscard)
 	mux.HandleFunc("GET /api/projects/{id}/terminals", s.handleListTerminals)
 	mux.HandleFunc("POST /api/projects/{id}/terminals", s.handleCreateTerminal)
 	mux.HandleFunc("DELETE /api/projects/{id}/terminals/{termId}", s.handleCloseTerminal)
@@ -48,6 +52,7 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/projects/{id}/raw", s.handleProjectRaw)
 	mux.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
 	mux.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
+	mux.HandleFunc("GET /api/projects/{id}/activity", s.handleProjectActivity)
 
 	mux.Handle("/", spaHandler(dist))
 	return mux

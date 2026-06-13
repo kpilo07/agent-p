@@ -1,9 +1,11 @@
 // ADAPTADOR de salida: implementa IStorage usando localStorage.
 // Patrón: Singleton
 import type { IStorage } from '../../core/domain/ports/IStorage';
+import type { PinnedTerm } from '../../core/domain/project';
 
 const RECENT_KEY = 'agent-p:recent';
 const RECENT_MAX = 8;
+const PINNED_KEY = 'agent-p:pinned-terms';
 
 class StorageService implements IStorage {
   private static instance: StorageService | null = null;
@@ -36,6 +38,23 @@ class StorageService implements IStorage {
 
   addRecentId(id: string, current: string[]): string[] {
     return [id, ...current.filter((r) => r !== id)].slice(0, RECENT_MAX);
+  }
+
+  loadPinnedTerms(): Record<string, PinnedTerm[]> {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PINNED_KEY) ?? '{}');
+      return raw && typeof raw === 'object' ? (raw as Record<string, PinnedTerm[]>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  savePinnedTerms(map: Record<string, PinnedTerm[]>): void {
+    try {
+      localStorage.setItem(PINNED_KEY, JSON.stringify(map));
+    } catch {
+      // localStorage no disponible (modo privado, SSR, etc.)
+    }
   }
 }
 

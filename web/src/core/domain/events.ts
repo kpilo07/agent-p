@@ -14,7 +14,14 @@ export type WsStatus = 'connecting' | 'open' | 'closed';
 
 /** Eventos del servidor (espejo de internal/adapters/hub en Go). */
 export interface ServerEvent {
-  type: 'output' | 'replay' | 'git_update' | 'fs_change' | 'notification' | 'session_state';
+  type:
+    | 'output'
+    | 'replay'
+    | 'git_update'
+    | 'fs_change'
+    | 'notification'
+    | 'session_state'
+    | 'activity';
   projectId?: string;
   termId?: string;
   payload?: unknown;

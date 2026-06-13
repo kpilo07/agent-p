@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"agent-p/internal/project/domain"
 )
@@ -173,6 +174,87 @@ func (s *Server) handleProjectDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, snap)
+}
+
+func (s *Server) handleInterruptProject(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	if err := s.uc.InterruptAgent(p.ID); err != nil {
+		if errors.Is(err, domain.ErrNotRunning) {
+			s.failMsg(w, "el agente no está en ejecución", http.StatusConflict)
+			return
+		}
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	var req struct {
+		Message string `json:"message"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Message == "" {
+		s.failMsg(w, "el mensaje de commit es obligatorio", http.StatusBadRequest)
+		return
+	}
+	if err := s.uc.GitCommit(r.Context(), p.ID, req.Message); err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleGitStash(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	if err := s.uc.GitStash(r.Context(), p.ID); err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleGitDiscard(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if err := s.uc.GitDiscard(r.Context(), p.ID, req.Path); err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleProjectActivity(w http.ResponseWriter, r *http.Request) {
+	limit := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		limit, _ = strconv.Atoi(v)
+	}
+	events, err := s.uc.ListActivity(r.Context(), r.PathValue("id"), limit)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, events)
 }
 
 func (s *Server) handleProjectSessions(w http.ResponseWriter, r *http.Request) {

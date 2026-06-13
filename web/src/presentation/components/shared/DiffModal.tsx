@@ -1,15 +1,22 @@
 // Modal del visor de git diff general (review). El acordeón de archivos y el
 // renderizado de líneas viven en DiffView, compartidos con el FileViewerModal
-// del Mapa Táctico.
+// del Mapa Táctico. Incluye acciones de gobierno del repo sobre el trabajo del
+// agente: commit, stash y descartar (todo o por archivo).
+import { useState } from 'react';
+
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { DiffFileList } from './DiffView';
 import { ModalShell } from '../ui/ModalShell';
-import { IconClose, IconRefresh } from '../ui/icons';
+import { IconArchive, IconClose, IconGitCommit, IconRefresh, IconTrash } from '../ui/icons';
 
 export function DiffModal() {
   const focused = useStore(selectFocusedProject);
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const dirty = (snap?.files?.length ?? 0) > 0;
 
   const refresh = () => {
     if (!focused) return;
@@ -23,6 +30,43 @@ export function DiffModal() {
           message: (err as Error).message,
         }),
       );
+  };
+
+  // Ejecuta una acción git con feedback y refresco del diff.
+  const run = async (title: string, action: () => Promise<void>, okMsg: string) => {
+    if (!focused || busy) return;
+    setBusy(true);
+    try {
+      await action();
+      useStore.getState().pushToast({ level: 'info', title, message: okMsg });
+      refresh();
+    } catch (err) {
+      useStore.getState().pushToast({ level: 'error', title, message: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const commit = () => {
+    const msg = message.trim();
+    if (!msg) return;
+    run('Commit', () => api.gitCommit(focused!.id, msg), 'Commit creado').then(() =>
+      setMessage(''),
+    );
+  };
+
+  const stash = () =>
+    run('Stash', () => api.gitStash(focused!.id), 'Cambios guardados en stash');
+
+  const discardAll = () => {
+    if (!window.confirm('¿Descartar TODOS los cambios del working tree? Esto no se puede deshacer.'))
+      return;
+    run('Descartar', () => api.gitDiscard(focused!.id), 'Cambios descartados');
+  };
+
+  const discardFile = (path: string) => {
+    if (!window.confirm(`¿Descartar los cambios de "${path}"? Esto no se puede deshacer.`)) return;
+    run('Descartar', () => api.gitDiscard(focused!.id, path), `Descartado: ${path}`);
   };
 
   if (!focused) return null;
@@ -61,7 +105,44 @@ export function DiffModal() {
           </header>
 
           <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto">
-            <DiffFileList snap={snap} />
+            <DiffFileList snap={snap} onDiscardFile={dirty ? discardFile : undefined} />
+          </div>
+
+          {/* Barra de acciones de gobierno del repo */}
+          <div className="flex items-center gap-2 border-t border-[var(--border-secondary)] px-5 py-2.5">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && commit()}
+              disabled={!dirty || busy}
+              placeholder="Mensaje de commit…"
+              className="min-w-0 flex-1 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-1.5 font-mono text-[12px] text-[var(--text-primary)] placeholder:text-muted focus:border-gold focus:outline-none disabled:opacity-50"
+            />
+            <button
+              className="btn-tactical flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 !text-alert-green disabled:opacity-40"
+              onClick={commit}
+              disabled={!dirty || busy || !message.trim()}
+              title="git add -A && git commit"
+            >
+              <IconGitCommit className="h-4 w-4" /> <span className="hud-label">Commit</span>
+            </button>
+            <button
+              className="btn-tactical btn-tactical--cyan flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 disabled:opacity-40"
+              onClick={stash}
+              disabled={!dirty || busy}
+              title="git stash push -u"
+            >
+              <IconArchive className="h-4 w-4" /> <span className="hud-label">Stash</span>
+            </button>
+            <button
+              className="btn-tactical btn-tactical--danger flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 disabled:opacity-40"
+              onClick={discardAll}
+              disabled={!dirty || busy}
+              title="Descartar todos los cambios"
+            >
+              <IconTrash className="h-4 w-4" /> <span className="hud-label">Descartar</span>
+            </button>
           </div>
 
           {snap && (
