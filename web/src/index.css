@@ -1114,3 +1114,11 @@ html, body, #root {
   color: var(--text-primary);
   z-index: 10;
 }
+
+/* ── Toasts (sileo): fondo negro sólido ──────────────────────────────
+   El fill del toast se fuerza a #000000 desde <Toaster options={{ fill }} />.
+   Con theme="dark" sileo pinta la descripción en texto oscuro (pensado para
+   un fondo claro), invisible sobre negro: la aclaramos aquí. */
+[data-sileo-viewport][data-theme='dark'] [data-sileo-description] {
+  color: rgba(255, 255, 255, 0.6);
+}

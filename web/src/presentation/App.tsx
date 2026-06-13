@@ -19,7 +19,7 @@ import { FileViewerModal } from './components/shared/FileViewerModal';
 import { FileSearchModal } from './components/shared/FileSearchModal';
 
 const TOASTER_OFFSET = { bottom: 40, right: 64 } as const;
-const TOASTER_OPTIONS = { duration: 6000 } as const;
+const TOASTER_OPTIONS = { duration: 6000, fill: '#000000' } as const;
 
 // Cablear WsClient (IRealtimeClient) con el store — se ejecuta una sola vez al cargar el módulo.
 wsClient.onServerEvent((evt) => useStore.getState().handleServerEvent(evt));
