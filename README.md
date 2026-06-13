@@ -5,60 +5,133 @@ agentes de IA (Claude Code, Codex, aider…) trabajan en la terminal. Soporta
 múltiples proyectos abiertos simultáneamente, con notificaciones cuando un
 proyecto en segundo plano sufre cambios.
 
-Un **único binario Go** sin CGO que sirve el frontend de React embebido.
+Un **único binario Go** sin CGO que sirve el frontend de React embebido vía
+`go:embed`. Backend y frontend siguen ambos **arquitectura hexagonal**
+(puertos y adaptadores).
 
-## Estructura
+## Novedades recientes
 
-```
-agent-p/
-├── main.go                      # Orquestación: embed, wiring, ciclo de vida
-├── go.mod
-├── Makefile
-├── internal/
-│   ├── db/db.go                 # SQLite puro (modernc.org/sqlite) — proyectos y sesiones
-│   ├── hub/
-│   │   ├── hub.go               # Hub central de WebSockets (multi-proyecto, multi-cliente)
-│   │   └── client.go            # read/write pumps por conexión
-│   ├── term/manager.go          # PTY por proyecto (creack/pty), goroutine por sesión
-│   ├── gitwatch/watcher.go      # Sondeo concurrente de git diff + notificaciones
-│   └── server/
-│       ├── server.go            # Router, SPA embebida con fallback
-│       └── api.go               # API REST de proyectos
-└── web/                         # Frontend (Rspack + React 19 + Tailwind v4)
-    ├── rspack.config.ts         # PostCSS/Tailwind + proxy dev hacia :8089
-    └── src/
-        ├── store/store.ts       # Zustand: foco, activos, notificaciones, git
-        ├── lib/ws.ts            # WS con reconexión; stream de terminal fuera de React
-        ├── lib/api.ts           # Cliente REST
-        └── components/
-            ├── Sidebar.tsx      # Lista de proyectos + badges de no-leídos
-            ├── TerminalPanel.tsx# xterm + fit, conmuta según proyecto en foco
-            ├── DiffPanel.tsx    # Visualizador de git diff en vivo
-            └── Toasts.tsx       # Alertas flotantes de proyectos en fondo
-```
+- 🗺️ **Mapa de nodos** (`NodeMap`, vía `@xyflow/react`): los proyectos se
+  visualizan como un grafo interactivo, no solo como lista.
+- 📜 **Registro de actividad** (`activity`): cada proyecto acumula un historial
+  de eventos consultable desde la UI (`ActivityModal`).
+- 🌳 **Explorador de archivos**: árbol de ficheros del proyecto, búsqueda
+  (`FileSearchModal`) y visor con resaltado de sintaxis (`FileViewerModal`,
+  vía `highlight.js`) y render de Markdown (`marked`).
+- 👁️ **Watcher de filesystem** (`fswatch`, vía `fsnotify`) además del sondeo de
+  git: el árbol y los diffs reaccionan a cambios en disco.
+- 🎬 **Animaciones FLIP** (`blendy`) para transiciones de modales.
+- 🏗️ **Refactor a arquitectura hexagonal** completa en backend y frontend, con
+  contexto acotado `project` y puertos/adaptadores explícitos.
+- 🔧 Toolchain: **Go 1.26**, **pnpm**, **React 19**, **Tailwind v4**, **Rspack 2**.
 
-## Arquitectura
+## Arquitectura en tiempo de ejecución
 
 ```
  Navegador ──── 1 WebSocket ────┐
-   xterm ◄── output/replay      │        ┌── goroutine PTY  (proyecto A)
-   zustand ◄── git_update       ├── HUB ─┼── goroutine PTY  (proyecto B)
-   toasts ◄── notification      │        ├── goroutine git-watch (A)
-   input/resize/attach ──────►  │        └── goroutine git-watch (B)
+   xterm ◄── output/replay      │        ┌── goroutine PTY        (proyecto A)
+   zustand ◄── git_update       ├── HUB ─┼── goroutine PTY        (proyecto B)
+   nodemap ◄── fs_change        │        ├── goroutine git-watch  (A)
+   toasts ◄── notification      │        ├── goroutine git-watch  (B)
+   input/resize/attach ──────►  │        └── goroutine fs-watch   (A, B)
                                 └── SQLite (modernc, sin CGO)
 ```
 
-- **Eventos por proyecto** (`output`, `git_update`) → solo a los clientes
-  suscritos (attach) a ese proyecto.
+- **Eventos por proyecto** (`output`, `git_update`, `fs_change`) → solo a los
+  clientes suscritos (attach) a ese proyecto.
 - **Eventos globales** (`notification`, `session_state`) → a todos los
   clientes; la UI muestra toast + badge solo si el proyecto está en fondo.
 - La salida del PTY viaja en **base64** (puede no ser UTF-8 válido) y se
-  conserva un scrollback de 256 KB que se reenvía (`replay`) al hacer attach.
+  conserva un scrollback que se reenvía (`replay`) al hacer attach.
+
+### Protocolo WebSocket (hub ↔ UI)
+
+| Dirección | Tipos de mensaje |
+|---|---|
+| Servidor → UI | `output`, `replay`, `git_update`, `fs_change`, `notification`, `session_state` |
+| UI → Servidor | `subscribe`, `unsubscribe`, `attach`, `detach`, `input`, `resize` |
+
+## Estructura — Backend (hexagonal)
+
+Regla de dependencias: `cmd/api → infrastructure → service → domain`.
+El dominio no importa nada de fuera; los adaptadores implementan los puertos
+definidos en `domain/ports.go`.
+
+```
+agent-p/
+├── cmd/api/main.go                 # Composition Root — cablea todos los adaptadores
+├── frontend.go                     # package agentspa — embebe web/dist (go:embed)
+├── go.mod                          # Go 1.26
+├── Makefile
+└── internal/
+    ├── platform/storage/sqlite.go  # Factory de conexión SQLite (WAL, foreign keys)
+    └── project/                    # CONTEXTO ACOTADO: gestión de proyectos
+        ├── domain/                 # El Hexágono — Go puro, sin dependencias externas
+        │   ├── project.go          # Entidades: Project, Session, GitSnapshot, TermInfo…
+        │   ├── errors.go           # Errores centinela: ErrNotFound, ErrAlreadyRunning…
+        │   └── ports.go            # TODAS las interfaces de puertos (driven + driving)
+        ├── service/service.go      # Casos de uso (ProjectService): orquesta los puertos
+        └── infrastructure/         # ADAPTADORES — implementaciones concretas
+            ├── sqlite/repository.go    # ProjectRepository + SessionRepository
+            ├── hub/                    # EventBus → WebSocket (gorilla/websocket)
+            │   ├── hub.go              # broadcast, suscripciones, ruteo de comandos
+            │   └── client.go           # bombas read/write, ping/pong
+            ├── term/manager.go         # TerminalService → PTY (creack/pty)
+            ├── gitwatch/watcher.go     # GitService → sondeo de git + parseo de diff
+            ├── fswatch/watcher.go      # FSWatcher → fsnotify
+            ├── activity/recorder.go    # Registro de actividad por proyecto
+            └── http/                   # Adaptador driving → handlers HTTP
+                ├── server.go           # Rutas + fallback de SPA embebida
+                ├── project_handler.go
+                └── tree_handler.go     # Árbol de archivos / lectura de ficheros
+```
+
+## Estructura — Frontend (hexagonal)
+
+Regla de dependencias: `presentation → infrastructure → core/use-cases → core/domain`.
+El `core/` nunca importa de `infrastructure/` ni `presentation/`. Los servicios de
+`infrastructure/` y `core/use-cases/` son **Singletons** (`getInstance()`).
+
+```
+web/                                # Rspack 2 + React 19 + Tailwind v4
+├── rspack.config.ts                # PostCSS/Tailwind + proxy dev hacia :8089
+└── src/
+    ├── core/                       # El Hexágono — lógica pura, sin framework
+    │   ├── domain/                 # Entidades y reglas
+    │   │   ├── project.ts          # Project, Session, GitSnapshot, TreeNode…
+    │   │   ├── diff.ts             # DiffFile, DiffRow, RowKind
+    │   │   ├── events.ts           # ServerEvent, WsStatus, Toast…
+    │   │   └── ports/              # PUERTOS DE SALIDA (contratos)
+    │   │       ├── IApiRepository.ts
+    │   │       ├── IRealtimeClient.ts
+    │   │       └── IStorage.ts
+    │   └── use-cases/              # Servicios de aplicación
+    │       ├── ProjectService.ts
+    │       └── DiffService.ts
+    ├── infrastructure/             # ADAPTADORES de los puertos
+    │   ├── api/ApiClient.ts        # IApiRepository vía fetch
+    │   ├── ws/WsClient.ts          # IRealtimeClient vía WebSocket (Observer)
+    │   ├── storage/StorageService.ts  # IStorage vía localStorage
+    │   ├── ui/BlendyService.ts     # Animaciones FLIP (blendy)
+    │   ├── ui/HighlightService.ts  # Resaltado de sintaxis (highlight.js)
+    │   └── store/store.ts          # Estado global UI — Zustand (único lugar)
+    └── presentation/               # Capa React — solo UI
+        ├── App.tsx                 # Raíz: cablea adaptadores con casos de uso
+        ├── components/
+        │   ├── ui/                 # Atómicos: icons, ModalShell, Blendy, AgentLogo
+        │   ├── layout/             # StatusBar, Toolbar, Home, NodeMap
+        │   └── shared/             # DiffModal/View, TerminalModal/View, ActivityModal,
+        │                           # FileSearchModal, FileViewerModal, DirBrowser,
+        │                           # ProjectsModal, AddProjectModal
+        └── hooks/                  # Puente UI ↔ infra (sin acceso directo al store)
+            ├── useProjects.ts  useGit.ts  useTerminals.ts
+            ├── useFileTree.ts   useActivity.ts
+```
 
 ## Uso
 
 ```bash
-make build          # compila web/dist y el binario (CGO_ENABLED=0)
+make build          # compila web/dist (pnpm) y el binario (CGO_ENABLED=0)
 ./agent-p           # http://127.0.0.1:8089
 ./agent-p -addr 127.0.0.1:9000 -db ~/agent-p.db -poll 1s
 ```
@@ -66,8 +139,16 @@ make build          # compila web/dist y el binario (CGO_ENABLED=0)
 Desarrollo con HMR:
 
 ```bash
-make dev-backend    # Go en :8089
-make dev-frontend   # Rspack en :3000 con proxy /api y /ws
+make dev-backend    # Go en :8089 (sirve el último build de web/dist)
+make dev-frontend   # Rspack en :3000 con proxy /api y /ws hacia :8089
+```
+
+Otros targets:
+
+```bash
+make lint           # go vet ./...
+make test           # go test ./... (CGO_ENABLED=0)
+make clean          # elimina binario y web/dist
 ```
 
 ## Notas de seguridad
@@ -82,3 +163,11 @@ No la expongas a la red sin añadir autenticación.
 
 - `git` en el PATH (para el monitoreo de diffs).
 - Linux/macOS (PTY vía `creack/pty`).
+
+## Stack
+
+- **Backend:** Go 1.26 · gorilla/websocket · creack/pty · fsnotify ·
+  modernc.org/sqlite (SQLite puro, sin CGO).
+- **Frontend:** React 19 · Rspack 2 · Tailwind v4 · Zustand 5 · @xyflow/react
+  (mapa de nodos) · xterm.js · highlight.js · marked · blendy.
+- **Tooling:** pnpm.
