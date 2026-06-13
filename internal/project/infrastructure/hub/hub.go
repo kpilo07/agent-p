@@ -149,14 +149,7 @@ func (h *Hub) Run(ctx context.Context) {
 			h.clients[c] = struct{}{}
 			h.log.Info("ws client connected", "clients", len(h.clients))
 		case c := <-h.unregister:
-			if _, ok := h.clients[c]; ok {
-				delete(h.clients, c)
-				for _, set := range h.subscriptions {
-					delete(set, c)
-				}
-				c.closeSend()
-				h.log.Info("ws client disconnected", "clients", len(h.clients))
-			}
+			h.dropClient(c)
 		case req := <-h.subs:
 			if req.subscribe {
 				set, ok := h.subscriptions[req.projectID]
@@ -169,17 +162,39 @@ func (h *Hub) Run(ctx context.Context) {
 				delete(set, req.client)
 			}
 		case env := <-h.outbound:
-			if env.projectID == "" {
-				for c := range h.clients {
-					c.trySend(env.data)
+			targets := h.clients
+			if env.projectID != "" {
+				targets = h.subscriptions[env.projectID]
+			}
+			// Recolectamos los clientes lentos y los eliminamos al final: NO se
+			// puede usar h.unregister desde aquí (somos su único lector → deadlock).
+			var dead []*Client
+			for c := range targets {
+				select {
+				case c.send <- env.data:
+				default:
+					dead = append(dead, c)
 				}
-			} else {
-				for c := range h.subscriptions[env.projectID] {
-					c.trySend(env.data)
-				}
+			}
+			for _, c := range dead {
+				h.dropClient(c)
 			}
 		}
 	}
+}
+
+// dropClient elimina un cliente del hub y cierra su canal de envío. DEBE
+// invocarse solo desde la goroutine Run (muta el estado sin sincronización).
+func (h *Hub) dropClient(c *Client) {
+	if _, ok := h.clients[c]; !ok {
+		return
+	}
+	delete(h.clients, c)
+	for _, set := range h.subscriptions {
+		delete(set, c)
+	}
+	c.closeSend()
+	h.log.Info("ws client disconnected", "clients", len(h.clients))
 }
 
 // BroadcastProject implementa domain.EventBus.

@@ -3,7 +3,7 @@ BINARY     := agent-p
 CMD        := ./cmd/api
 GO         ?= $(shell command -v go 2>/dev/null || echo $(HOME)/.local/go/bin/go)
 
-.PHONY: all web build dev-backend dev-frontend lint test clean
+.PHONY: all web build dev-backend dev-frontend lint test test-race clean
 
 all: build
 
@@ -27,9 +27,13 @@ dev-frontend:
 lint:
 	$(GO) vet ./...
 
-## Tests del backend.
+## Tests del backend (rápido, sin CGO).
 test:
 	CGO_ENABLED=0 $(GO) test ./...
+
+## Tests con el detector de carreras (requiere CGO, p.ej. el deadlock del hub).
+test-race:
+	CGO_ENABLED=1 $(GO) test -race -count=1 ./...
 
 clean:
 	rm -f $(BINARY)
