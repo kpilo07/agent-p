@@ -194,7 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
         return { pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };
       }
       const n = list.length;
-      const pin: PinnedTerm = { termId, x: 300 + n * 48, y: 24 + n * 48, w: 380, h: 240 };
+      const pin: PinnedTerm = { termId, x: 300 + n * 48, y: 24 + n * 48, w: 880, h: 520 };
       const pinnedTerms = { ...s.pinnedTerms, [projectId]: [...list, pin] };
       storageService.savePinnedTerms(pinnedTerms);
       return { pinnedTerms, pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };

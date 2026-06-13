@@ -43,7 +43,18 @@ class StorageService implements IStorage {
   loadPinnedTerms(): Record<string, PinnedTerm[]> {
     try {
       const raw = JSON.parse(localStorage.getItem(PINNED_KEY) ?? '{}');
-      return raw && typeof raw === 'object' ? (raw as Record<string, PinnedTerm[]>) : {};
+      if (!raw || typeof raw !== 'object') return {};
+      const map = raw as Record<string, PinnedTerm[]>;
+      // Migración: anclajes con el tamaño antiguo y pequeño (380×240) se
+      // reescalan al nuevo tamaño por defecto para que tengan un ancho
+      // similar al del modal de terminal.
+      for (const list of Object.values(map)) {
+        for (const p of list ?? []) {
+          if (p.w <= 380) p.w = 880;
+          if (p.h <= 240) p.h = 520;
+        }
+      }
+      return map;
     } catch {
       return {};
     }

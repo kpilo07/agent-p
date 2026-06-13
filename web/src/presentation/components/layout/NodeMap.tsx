@@ -359,10 +359,10 @@ function TerminalNode({ data }: NodeProps<TermNode>) {
   return (
     <div className="map-term-node">
       <NodeResizer
-        minWidth={260}
-        minHeight={150}
-        maxWidth={900}
-        maxHeight={640}
+        minWidth={360}
+        minHeight={220}
+        maxWidth={1200}
+        maxHeight={820}
         isVisible
         lineClassName="map-term-node__resize-line"
         handleClassName="map-term-node__resize-handle"

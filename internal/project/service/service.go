@@ -90,8 +90,14 @@ func (s *ProjectService) StartProject(ctx context.Context, p domain.Project) err
 	if err := s.terminal.Start(p.ID, domain.AgentTermID, "Agente", p.Path, p.CLICommand); err != nil {
 		return err
 	}
-	s.git.Watch(ctx, p.ID, p.Name, p.Path)
-	s.fswatch.Watch(ctx, p.ID, p.Path)
+	// Los watchers son procesos de larga vida ligados al ciclo del proyecto,
+	// NO al de la petición HTTP. Si heredan el contexto de la request, este se
+	// cancela al responder el handler y los loops mueren tras el primer
+	// snapshot: dejan de emitirse git_update/fs_change y el mapa no se anima.
+	// Los detenemos explícitamente en StopProject (Unwatch).
+	wctx := context.WithoutCancel(ctx)
+	s.git.Watch(wctx, p.ID, p.Name, p.Path)
+	s.fswatch.Watch(wctx, p.ID, p.Path)
 	if id, err := s.sessions.CreateSession(ctx, p.ID); err == nil {
 		s.sessMu.Lock()
 		s.liveSessions[p.ID] = id
