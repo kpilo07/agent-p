@@ -7,11 +7,14 @@
 // tablero en vez de en el modal). El render de la terminal (TerminalView) está
 // desacoplado de la sesión, así que anclar = montar el mismo (projectId, termId)
 // en otro contenedor sin perder nada.
+import { useEffect } from 'react';
+
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import {
   AGENT_TERM_ID,
   selectFocusedProject,
   useStore,
+  type PinnedTerm,
   type TermInfo,
 } from '../../../infrastructure/store/store';
 import { ModalShell } from '../ui/ModalShell';
@@ -19,6 +22,7 @@ import { TerminalView } from './TerminalView';
 import { IconClose, IconPin, IconTerminal, IconTrash } from '../ui/icons';
 
 const NO_TERMS: TermInfo[] = [];
+const NO_PINS: PinnedTerm[] = [];
 
 export function TerminalModal() {
   const focused = useStore(selectFocusedProject);
@@ -26,14 +30,25 @@ export function TerminalModal() {
   const terminals = useStore((s) =>
     focused ? (s.terminals[focused.id] ?? NO_TERMS) : NO_TERMS,
   );
+  const pinned = useStore((s) => (focused ? (s.pinnedTerms[focused.id] ?? NO_PINS) : NO_PINS));
 
-  if (!focused) return null;
+  // El modal muestra SIEMPRE la terminal enfocada. No caemos al agente cuando la
+  // enfocada aún no está en la lista: una terminal recién creada se enfoca antes
+  // de que llegue su session_state por WS, y caer al agente la duplicaría (se vería
+  // el agente en el modal y, si está anclado, también en el tablero). El backend
+  // hace replay en cuanto el PTY está listo; y el cierre de un shell ya redirige el
+  // foco al agente en el store (focusFix), así que aquí no hace falta ese fallback.
+  const termId = focusedTermId;
 
-  // Si el shell seleccionado se cerró, cae a la consola del agente.
-  const termId =
-    focusedTermId === AGENT_TERM_ID || terminals.some((t) => t.id === focusedTermId)
-      ? focusedTermId
-      : AGENT_TERM_ID;
+  // Invariante: una terminal vive en UN solo sitio. Si la enfocada está anclada al
+  // tablero, no la duplicamos en el modal — lo cerramos y dejamos su nodo.
+  const isPinnedHere = pinned.some((p) => p.termId === termId);
+  useEffect(() => {
+    if (isPinnedHere) useStore.getState().setTerminalModalOpen(false);
+  }, [isPinnedHere]);
+
+  if (!focused || isPinnedHere) return null;
+
   const isAgent = termId === AGENT_TERM_ID;
   const title = isAgent
     ? focused.cliCommand || 'Agente'
