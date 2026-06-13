@@ -1,34 +1,35 @@
-// Layout principal con dos Modos de Vista:
-//  · 'console' — la terminal es el workspace, con el diff general en vivo
-//    en el panel derecho (DiffPanel).
-//  · 'map' — el workspace es el Mapa Táctico (mapa de nodos del repo con
-//    React Flow); la consola pasa a ser una herramienta más de la toolbox
-//    y se abre en una modal (TerminalModal).
-// La suscripción WS a los eventos del proyecto enfocado se gestiona aquí,
-// para que git_update/fs_change lleguen aunque la consola no esté montada.
+// Layout principal. El workspace es siempre el Mapa Táctico (mapa de nodos del
+// repo con React Flow); sin proyecto en foco se muestra la pantalla de inicio
+// (logo + accesos directos a proyectos recientes). La consola es una
+// herramienta más de la toolbox y se abre en una modal (TerminalModal).
+// La suscripción WS a los eventos del proyecto enfocado se gestiona aquí, para
+// que git_update/fs_change lleguen aunque la consola no esté montada.
 import { useEffect } from 'react';
+import { Toaster } from 'sileo';
 
 import { api } from './lib/api';
 import { connect, subscribeProject, unsubscribeProject } from './lib/ws';
 import { selectFocusedProject, useStore } from './store/store';
 import { Toolbar } from './components/Toolbar';
 import { ProjectsModal } from './components/ProjectsModal';
-import { TerminalPanel } from './components/TerminalPanel';
 import { TerminalModal } from './components/TerminalModal';
 import { DiffModal } from './components/DiffModal';
-import { DiffPanel } from './components/DiffPanel';
 import { NodeMap } from './components/NodeMap';
+import { Home } from './components/Home';
 import { FileViewerModal } from './components/FileViewerModal';
 import { FileSearchModal } from './components/FileSearchModal';
-import { Toasts } from './components/Toasts';
 import { StatusBar } from './components/StatusBar';
+
+// Referencias ESTABLES para el Toaster: pasarlas como literales inline daría un
+// objeto nuevo en cada render y dispararía el bucle de actualización (React #185).
+const TOASTER_OFFSET = { bottom: 40, right: 64 } as const;
+const TOASTER_OPTIONS = { duration: 6000 } as const;
 
 export default function App() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
   const projectsOpen = useStore((s) => s.projectsModalOpen);
   const terminalOpen = useStore((s) => s.terminalModalOpen);
-  const viewMode = useStore((s) => s.viewMode);
   const selectedFile = useStore((s) => s.selectedFile);
   const searchOpen = useStore((s) => s.searchOpen);
   const wsOpen = useStore((s) => s.wsStatus === 'open');
@@ -81,29 +82,10 @@ export default function App() {
     };
   }, [focused?.id, snap === undefined]);
 
-  const mapMode = viewMode === 'map' && focused !== null;
-
   return (
     <div className="relative flex h-full flex-col bg-[var(--bg-void)]">
       <main className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1.5 p-1.5">
-        {mapMode ? (
-          // Modo Mapa Táctico: el mapa de nodos ES el workspace.
-          <div className="min-w-0 flex-1">
-            <NodeMap />
-          </div>
-        ) : (
-          // Modo Consola: terminal + diff general en vivo.
-          <>
-            <div className="min-w-0 flex-1">
-              <TerminalPanel />
-            </div>
-            {focused && (
-              <aside className="w-[clamp(300px,32vw,500px)] shrink-0">
-                <DiffPanel />
-              </aside>
-            )}
-          </>
-        )}
+        <div className="min-w-0 flex-1">{focused ? <NodeMap /> : <Home />}</div>
       </main>
 
       <StatusBar />
@@ -111,10 +93,15 @@ export default function App() {
       <Toolbar />
       {projectsOpen && <ProjectsModal />}
       {diffOpen && <DiffModal />}
-      {mapMode && terminalOpen && <TerminalModal />}
+      {terminalOpen && focused && <TerminalModal />}
       {searchOpen && focused && <FileSearchModal />}
       {selectedFile && <FileViewerModal />}
-      <Toasts />
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        offset={TOASTER_OFFSET}
+        options={TOASTER_OPTIONS}
+      />
     </div>
   );
 }

@@ -12,6 +12,12 @@ export default defineConfig({
   output: {
     clean: true,
     publicPath: '/',
+    // Hash de contenido en producción: cada build cambia el nombre del asset,
+    // así el navegador nunca sirve un main.js cacheado y obsoleto (causa de
+    // errores fantasma como React #185 tras un arreglo ya aplicado). En dev se
+    // mantienen nombres estables para el HMR.
+    filename: isDev ? '[name].js' : '[name].[contenthash].js',
+    cssFilename: isDev ? '[name].css' : '[name].[contenthash].css',
   },
   resolve: {
     extensions: ['...', '.ts', '.tsx', '.jsx'],

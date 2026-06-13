@@ -1,7 +1,6 @@
 // Piezas de renderizado de diffs compartidas: DiffRows pinta las filas de un
 // archivo (añadido en verde, borrado en rojo); DiffFileList es el acordeón de
-// archivos modificados que usan tanto la modal de review como el DiffPanel
-// del Modo Consola.
+// archivos modificados que usa la modal de review.
 import { useMemo, useState } from 'react';
 
 import { parseDiff, statusTag, type DiffRow } from '../lib/diff';

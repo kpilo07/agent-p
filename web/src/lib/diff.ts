@@ -1,5 +1,5 @@
 // Parsing del diff unificado de git a filas renderizables (estilo editor con
-// dos columnas de números de línea). Compartido por DiffModal, DiffPanel y
+// dos columnas de números de línea). Compartido por DiffModal y
 // FileViewerModal.
 
 export type RowKind = 'add' | 'del' | 'ctx' | 'hunk';

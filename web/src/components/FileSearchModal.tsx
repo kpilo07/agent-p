@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, type TreeNode } from '../lib/api';
 import { selectFocusedProject, useStore } from '../store/store';
+import { BlendySeed, useBlendyModal } from './Blendy';
 import { IconFile, IconSearch } from './icons';
 
 interface FileEntry {
@@ -45,7 +46,11 @@ export function FileSearchModal() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const close = () => useStore.getState().setSearchOpen(false);
+  // Cierre con transición Blendy (colapsa al centro) antes de desmontar.
+  const { id, closing, requestClose } = useBlendyModal(() =>
+    useStore.getState().setSearchOpen(false),
+  );
+  const close = requestClose;
 
   // Carga el árbol al abrir y enfoca el input.
   useEffect(() => {
@@ -118,72 +123,77 @@ export function FileSearchModal() {
   if (!focused) return null;
 
   return (
-    <div
-      className="modal-backdrop-in fixed inset-0 z-[860] flex justify-center bg-black/70 pt-[14vh]"
-      onClick={close}
-    >
+    <>
+      <BlendySeed id={id} />
       <div
-        className="gotham-enter flex h-fit max-h-[60vh] w-[560px] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-[var(--border-active)] bg-[var(--bg-secondary)]"
-        onClick={(e) => e.stopPropagation()}
+        className={`fixed inset-0 z-[860] flex items-center justify-center bg-black/70 p-6 ${
+          closing ? 'modal-backdrop-out' : 'modal-backdrop-in'
+        }`}
+        onClick={close}
       >
-        {/* Input */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-primary)] px-4 py-3">
-          <IconSearch className="h-4 w-4 shrink-0 text-muted" />
-          <input
-            ref={inputRef}
-            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-            placeholder={`Buscar archivos en ${focused.name}…`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <span className="hud-label shrink-0">{results.length} resultado(s)</span>
-        </div>
+        <div className="blendy-panel flex min-w-0" data-blendy-to={id} onClick={(e) => e.stopPropagation()}>
+          {/* Blendy exige UN único wrapper dentro del elemento data-blendy-to */}
+          <div className="flex h-fit max-h-[70vh] w-[560px] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-[var(--border-active)] bg-[var(--bg-secondary)]">
+            {/* Input */}
+            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-primary)] px-4 py-3">
+              <IconSearch className="h-4 w-4 shrink-0 text-muted" />
+              <input
+                ref={inputRef}
+                className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                placeholder={`Buscar archivos en ${focused.name}…`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onKeyDown}
+              />
+              <span className="hud-label shrink-0">{results.length} resultado(s)</span>
+            </div>
 
-        {/* Resultados */}
-        <div ref={listRef} className="styled-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
-          {results.length === 0 ? (
-            <p className="hud-label px-4 py-3">
-              {files.length === 0 ? 'Escaneando repositorio…' : 'Sin coincidencias'}
-            </p>
-          ) : (
-            results.map((f, i) => {
-              const stat = gitByPath.get(f.path);
-              const dir = f.path.slice(0, f.path.length - f.name.length);
-              return (
-                <button
-                  key={f.path}
-                  data-idx={i}
-                  className={`flex w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left font-mono text-[11px] transition-colors ${
-                    i === sel ? 'bg-[var(--hover-accent)]' : 'hover:bg-[var(--hover-accent)]'
-                  }`}
-                  onMouseEnter={() => setSel(i)}
-                  onClick={() => open(f.path)}
-                  title={f.path}
-                >
-                  <IconFile
-                    className={`h-3.5 w-3.5 shrink-0 ${stat ? 'text-gold' : 'text-muted'}`}
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {dir && <span className="text-muted">{dir}</span>}
-                    <span className="text-[var(--text-primary)]">{f.name}</span>
-                  </span>
-                  {stat && (
-                    <span className="shrink-0 text-[9px] font-semibold">
-                      <span className="text-alert-green">+{stat.additions}</span>{' '}
-                      <span className="text-alert-red">−{stat.deletions}</span>
-                    </span>
-                  )}
-                </button>
-              );
-            })
-          )}
-        </div>
+            {/* Resultados */}
+            <div ref={listRef} className="styled-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
+              {results.length === 0 ? (
+                <p className="hud-label px-4 py-3">
+                  {files.length === 0 ? 'Escaneando repositorio…' : 'Sin coincidencias'}
+                </p>
+              ) : (
+                results.map((f, i) => {
+                  const stat = gitByPath.get(f.path);
+                  const dir = f.path.slice(0, f.path.length - f.name.length);
+                  return (
+                    <button
+                      key={f.path}
+                      data-idx={i}
+                      className={`flex w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left font-mono text-[11px] transition-colors ${
+                        i === sel ? 'bg-[var(--hover-accent)]' : 'hover:bg-[var(--hover-accent)]'
+                      }`}
+                      onMouseEnter={() => setSel(i)}
+                      onClick={() => open(f.path)}
+                      title={f.path}
+                    >
+                      <IconFile
+                        className={`h-3.5 w-3.5 shrink-0 ${stat ? 'text-gold' : 'text-muted'}`}
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {dir && <span className="text-muted">{dir}</span>}
+                        <span className="text-[var(--text-primary)]">{f.name}</span>
+                      </span>
+                      {stat && (
+                        <span className="shrink-0 text-[9px] font-semibold">
+                          <span className="text-alert-green">+{stat.additions}</span>{' '}
+                          <span className="text-alert-red">−{stat.deletions}</span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
 
-        <footer className="shrink-0 border-t border-[var(--border-primary)] px-4 py-1.5">
-          <span className="hud-label">↑↓ navegar · Enter abrir · Esc cerrar</span>
-        </footer>
+            <footer className="shrink-0 border-t border-[var(--border-primary)] px-4 py-1.5">
+              <span className="hud-label">↑↓ navegar · Enter abrir · Esc cerrar</span>
+            </footer>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

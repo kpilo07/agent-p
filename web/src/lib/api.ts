@@ -75,6 +75,10 @@ export const api = {
   getFile: (id: string, path: string) =>
     request<FileContent>(`/api/projects/${id}/file?path=${encodeURIComponent(path)}`),
 
+  // URL directa a los bytes crudos (para incrustar imágenes con <img src>).
+  rawFileURL: (id: string, path: string) =>
+    `/api/projects/${id}/raw?path=${encodeURIComponent(path)}`,
+
   listTerminals: (id: string) => request<TermInfo[]>(`/api/projects/${id}/terminals`),
 
   createTerminal: (id: string, title?: string) =>

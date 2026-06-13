@@ -1,16 +1,20 @@
-// Visor del archivo seleccionado en el Mapa Táctico: pestaña "Contenido"
-// (el archivo completo con números de línea) y pestaña "Cambios" (su git
-// diff individual con añadidos en verde y eliminados en rojo).
+// Visor del archivo seleccionado en el Mapa Táctico. Pestañas:
+//   · "Contenido" — el archivo completo con números de línea y sintaxis
+//      resaltada; si es una imagen, la muestra incrustada.
+//   · "Vista previa" — solo para Markdown: renderiza el .md como HTML.
+//   · "Cambios" — su git diff individual (añadidos en verde, borrados en rojo).
+import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 
 import { api, type FileContent } from '../lib/api';
 import { parseDiff } from '../lib/diff';
+import { highlightToLines, isImagePath, isMarkdownPath } from '../lib/highlight';
 import { selectFocusedProject, useStore } from '../store/store';
 import { DiffRows } from './DiffView';
 import { ModalShell } from './ModalShell';
 import { IconClose, IconFile, IconRefresh } from './icons';
 
-type Tab = 'content' | 'diff';
+type Tab = 'content' | 'preview' | 'diff';
 
 export function FileViewerModal() {
   const focused = useStore(selectFocusedProject);
@@ -21,7 +25,13 @@ export function FileViewerModal() {
       !!focused && !!path && (s.git[focused.id]?.files ?? []).some((f) => f.path === path),
   );
 
-  const [tab, setTab] = useState<Tab>(dirty ? 'diff' : 'content');
+  const isImage = !!path && isImagePath(path);
+  const isMarkdown = !!path && isMarkdownPath(path);
+
+  // Markdown arranca en su preview; lo modificado en el diff; el resto en texto.
+  const [tab, setTab] = useState<Tab>(
+    dirty ? 'diff' : isMarkdown ? 'preview' : 'content',
+  );
   const [file, setFile] = useState<FileContent | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +39,12 @@ export function FileViewerModal() {
   const load = () => {
     if (!focused || !path) return;
     setLoading(true);
-    Promise.all([api.getFile(focused.id, path), api.getFileDiff(focused.id, path)])
+    // Las imágenes se sirven por <img>; solo pedimos su diff (raro, pero
+    // posible verlo marcado como modificado) y omitimos leer el contenido.
+    const filePromise = isImage
+      ? Promise.resolve(null)
+      : api.getFile(focused.id, path);
+    Promise.all([filePromise, api.getFileDiff(focused.id, path)])
       .then(([f, d]) => {
         setFile(f);
         setDiff(d.diff);
@@ -78,7 +93,8 @@ export function FileViewerModal() {
               {dirty && <span className="gotham-tag gotham-tag--medium shrink-0">modificado</span>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {tabBtn('content', 'Contenido')}
+              {isMarkdown && tabBtn('preview', 'Vista previa')}
+              {tabBtn('content', isImage ? 'Imagen' : 'Contenido')}
               {tabBtn('diff', 'Cambios')}
               <span className="mx-1 h-4 w-px bg-[var(--border-secondary)]" />
               <button
@@ -100,8 +116,14 @@ export function FileViewerModal() {
           <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--bg-primary)]">
             {loading ? (
               <p className="hud-label px-5 py-4">Cargando archivo…</p>
+            ) : tab === 'preview' ? (
+              <MarkdownPreview source={file?.content ?? ''} />
             ) : tab === 'content' ? (
-              <FileBody file={file} lines={lines} />
+              isImage ? (
+                <ImageBody src={api.rawFileURL(focused.id, path)} path={path} />
+              ) : (
+                <FileBody file={file} lines={lines} path={path} />
+              )
             ) : diffRows.length > 0 ? (
               <DiffRows rows={diffRows} />
             ) : (
@@ -114,11 +136,14 @@ export function FileViewerModal() {
             )}
           </div>
 
-          {file && (
+          {(file || isImage) && (
             <footer className="border-t border-[var(--border-secondary)] px-5 py-1.5">
               <span className="hud-label">
-                {lines.length} líneas · {(file.size / 1024).toFixed(1)} KiB
-                {file.truncated && ' · truncado a 1 MiB'}
+                {isImage
+                  ? 'Imagen'
+                  : `${lines.length} líneas · ${((file?.size ?? 0) / 1024).toFixed(1)} KiB${
+                      file?.truncated ? ' · truncado a 1 MiB' : ''
+                    }`}
               </span>
             </footer>
           )}
@@ -128,7 +153,21 @@ export function FileViewerModal() {
   );
 }
 
-function FileBody({ file, lines }: { file: FileContent | null; lines: string[] }) {
+function FileBody({
+  file,
+  lines,
+  path,
+}: {
+  file: FileContent | null;
+  lines: string[];
+  path: string;
+}) {
+  // Resalta una sola vez por (contenido, ruta); cae a texto plano si falla.
+  const html = useMemo(
+    () => (file && !file.binary ? highlightToLines(file.content, path) : null),
+    [file, path],
+  );
+
   if (!file || file.binary) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -139,13 +178,55 @@ function FileBody({ file, lines }: { file: FileContent | null; lines: string[] }
     );
   }
   return (
-    <div className="py-1">
+    <div className="hljs py-1">
       {lines.map((line, i) => (
         <div key={i} className="file-line">
           <span className="file-line__no">{i + 1}</span>
-          <span className="file-line__text">{line || ' '}</span>
+          {html ? (
+            <span
+              className="file-line__text"
+              dangerouslySetInnerHTML={{ __html: html[i] || ' ' }}
+            />
+          ) : (
+            <span className="file-line__text">{line || ' '}</span>
+          )}
         </div>
       ))}
     </div>
   );
+}
+
+function ImageBody({ src, path }: { src: string; path: string }) {
+  const [error, setError] = useState(false);
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="hud-label">No se pudo cargar la imagen</p>
+      </div>
+    );
+  }
+  return (
+    <div className="file-image-wrap">
+      <img src={src} alt={path} className="file-image" onError={() => setError(true)} />
+    </div>
+  );
+}
+
+function MarkdownPreview({ source }: { source: string }) {
+  const html = useMemo(() => {
+    try {
+      return marked.parse(source, { async: false, gfm: true, breaks: false }) as string;
+    } catch {
+      return '';
+    }
+  }, [source]);
+
+  if (!source.trim()) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="hud-label">Documento vacío</p>
+      </div>
+    );
+  }
+  return <div className="md-preview" dangerouslySetInnerHTML={{ __html: html }} />;
 }

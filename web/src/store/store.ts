@@ -7,6 +7,7 @@
 // La salida cruda de las terminales NO pasa por este store (sería demasiado
 // "caliente" para React): viaja por un canal de listeners en lib/ws.ts
 // directamente hacia la instancia de xterm.
+import { sileo } from 'sileo';
 import { create } from 'zustand';
 
 // ── Tipos ────────────────────────────────────────────────────────
@@ -37,8 +38,9 @@ export interface GitSnapshot {
 
 export type ToastLevel = 'git' | 'session' | 'info' | 'error';
 
+/** Notificación a mostrar con Sileo. Si trae projectId, ofrece "Ver" para
+ *  enfocar el proyecto que la originó (eventos en segundo plano). */
 export interface Toast {
-  id: number;
   projectId?: string;
   level: ToastLevel;
   title: string;
@@ -46,9 +48,6 @@ export interface Toast {
 }
 
 export type WsStatus = 'connecting' | 'open' | 'closed';
-
-/** Modo del panel derecho: diff general (console) o explorador (map). */
-export type ViewMode = 'console' | 'map';
 
 /** ID de la terminal principal (la del agente de IA). */
 export const AGENT_TERM_ID = 'agent';
@@ -73,12 +72,12 @@ interface AppState {
   focusedId: string | null;
   /** Proyectos abiertos (con PTY/watcher corriendo), incluidos los de fondo. */
   activeIds: string[];
-  /** Toasts visibles ahora mismo. */
-  toasts: Toast[];
   /** Badge de eventos sin leer por proyecto en segundo plano. */
   unread: Record<string, number>;
   /** Último snapshot de git por proyecto. */
   git: Record<string, GitSnapshot>;
+  /** IDs de proyectos por orden de uso reciente (el más reciente primero). */
+  recentIds: string[];
   wsStatus: WsStatus;
   /** Modal del panel de proyectos (grid de carpetas). */
   projectsModalOpen: boolean;
@@ -90,8 +89,6 @@ interface AppState {
   focusedTermId: string;
 
   // ── Mapa Táctico ──
-  /** Modo del panel derecho: 'console' (diff general) | 'map' (explorador). */
-  viewMode: ViewMode;
   /** Carpetas expandidas del explorador, por proyecto (paths relativos). */
   expandedDirs: Record<string, string[]>;
   /** Alertas de archivos recién modificados (fs_change): path → timestamp. */
@@ -117,48 +114,58 @@ interface AppState {
   setDiffModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
-  setViewMode: (mode: ViewMode) => void;
   toggleDir: (projectId: string, path: string) => void;
   clearFileAlert: (projectId: string, path: string) => void;
   setSelectedFile: (path: string | null) => void;
   setTerminalModalOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
-  pushToast: (toast: Omit<Toast, 'id'>) => void;
-  dismissToast: (id: number) => void;
+  /** Muestra una notificación (Sileo). */
+  pushToast: (toast: Toast) => void;
   /** Reductor central de eventos WebSocket del backend. */
   handleServerEvent: (evt: ServerEvent) => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────
 
-const TOAST_TTL_MS = 6000;
-let toastSeq = 0;
+// Cada nivel de notificación se pinta con la variante de Sileo acorde.
+type SileoOpts = Parameters<typeof sileo.info>[0];
+const SILEO_BY_LEVEL: Record<ToastLevel, (opts: SileoOpts) => string> = {
+  error: (o) => sileo.error(o),
+  session: (o) => sileo.warning(o),
+  git: (o) => sileo.info(o),
+  info: (o) => sileo.info(o),
+};
 
 // Tras este tiempo sin nuevos cambios, el parpadeo del archivo se apaga solo.
 const FILE_ALERT_TTL_MS = 15_000;
 
-const VIEW_MODE_KEY = 'agent-p:viewMode';
+// Proyectos abiertos recientemente (para los accesos directos de la pantalla
+// de inicio). Se recuerda entre sesiones y se ordena del más reciente al más
+// antiguo.
+const RECENT_KEY = 'agent-p:recent';
+const RECENT_MAX = 8;
 
-// Por defecto Modo Mapa; el switch de la barra de estado lo apaga hacia
-// Modo Consola y la elección se recuerda entre sesiones.
-function initialViewMode(): ViewMode {
-  const saved = localStorage.getItem(VIEW_MODE_KEY);
-  return saved === 'console' ? 'console' : 'map';
+function loadRecent(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 export const useStore = create<AppState>((set, get) => ({
   projects: [],
   focusedId: null,
   activeIds: [],
-  toasts: [],
   unread: {},
   git: {},
+  recentIds: loadRecent(),
   wsStatus: 'connecting',
   projectsModalOpen: false,
   diffModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
-  viewMode: initialViewMode(),
   expandedDirs: {},
   fileAlerts: {},
   treeVersion: {},
@@ -191,15 +198,25 @@ export const useStore = create<AppState>((set, get) => ({
       focusedId: s.focusedId === id ? null : s.focusedId,
     })),
 
-  // Enfocar un proyecto lo activa, limpia su badge y vuelve a la terminal
-  // del agente.
+  // Enfocar un proyecto lo activa, limpia su badge, vuelve a la terminal del
+  // agente y lo sube al principio de los recientes (persistido).
   focusProject: (id) =>
-    set((s) => ({
-      focusedId: id,
-      focusedTermId: AGENT_TERM_ID,
-      activeIds: id && !s.activeIds.includes(id) ? [...s.activeIds, id] : s.activeIds,
-      unread: id ? { ...s.unread, [id]: 0 } : s.unread,
-    })),
+    set((s) => {
+      if (!id) return { focusedId: id };
+      const recentIds = [id, ...s.recentIds.filter((r) => r !== id)].slice(0, RECENT_MAX);
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(recentIds));
+      } catch {
+        /* almacenamiento no disponible: la recencia se queda en memoria */
+      }
+      return {
+        focusedId: id,
+        focusedTermId: AGENT_TERM_ID,
+        activeIds: s.activeIds.includes(id) ? s.activeIds : [...s.activeIds, id],
+        unread: { ...s.unread, [id]: 0 },
+        recentIds,
+      };
+    }),
 
   markActive: (id, active) =>
     set((s) => ({
@@ -222,13 +239,6 @@ export const useStore = create<AppState>((set, get) => ({
 
   focusTerm: (focusedTermId) => set({ focusedTermId }),
 
-  setViewMode: (viewMode) => {
-    localStorage.setItem(VIEW_MODE_KEY, viewMode);
-    // Al cambiar de modo, la modal de terminal no debe quedar "armada":
-    // sin esto, volver al Modo Mapa la reabriría sola.
-    set({ viewMode, terminalModalOpen: false });
-  },
-
   toggleDir: (projectId, path) =>
     set((s) => {
       const open = s.expandedDirs[projectId] ?? [];
@@ -250,13 +260,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   setSearchOpen: (searchOpen) => set({ searchOpen }),
 
-  pushToast: (toast) => {
-    const id = ++toastSeq;
-    set((s) => ({ toasts: [...s.toasts, { ...toast, id }] }));
-    setTimeout(() => get().dismissToast(id), TOAST_TTL_MS);
+  pushToast: ({ level, title, message, projectId }) => {
+    const fn = SILEO_BY_LEVEL[level];
+    // Los eventos de un proyecto en segundo plano ofrecen saltar a él.
+    const button = projectId
+      ? { title: 'Ver', onClick: () => get().focusProject(projectId) }
+      : undefined;
+    fn({ title, description: message, button });
   },
-
-  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   handleServerEvent: (evt) => {
     const { focusedId, projects } = get();
@@ -361,3 +372,16 @@ export const useStore = create<AppState>((set, get) => ({
 // Selectores de conveniencia.
 export const selectFocusedProject = (s: AppState) =>
   s.projects.find((p) => p.id === s.focusedId) ?? null;
+
+// pickRecentProjects: hasta 3 proyectos para los accesos directos de inicio.
+// Primero los de uso reciente (en orden); si faltan, se rellena con los demás
+// proyectos del más nuevo al más viejo (la lista llega ordenada por antigüedad).
+// Helper puro (no es un selector de Zustand): el llamador lo memoiza sobre
+// `projects`/`recentIds` para no romper la igualdad por referencia.
+export function pickRecentProjects(projects: Project[], recentIds: string[]): Project[] {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const recent = recentIds.map((id) => byId.get(id)).filter((p): p is Project => !!p);
+  const seen = new Set(recent.map((p) => p.id));
+  const rest = [...projects].reverse().filter((p) => !seen.has(p.id));
+  return [...recent, ...rest].slice(0, 3);
+}

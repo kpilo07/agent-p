@@ -1,6 +1,6 @@
 // Modal del visor de git diff general (review). El acordeón de archivos y el
-// renderizado de líneas viven en DiffView, compartidos con el DiffPanel del
-// Modo Consola y el FileViewerModal del Mapa Táctico.
+// renderizado de líneas viven en DiffView, compartidos con el FileViewerModal
+// del Mapa Táctico.
 import { api } from '../lib/api';
 import { selectFocusedProject, useStore } from '../store/store';
 import { DiffFileList } from './DiffView';

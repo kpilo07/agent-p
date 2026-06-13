@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
@@ -163,6 +164,50 @@ func (s *Server) cleanRepoPath(w http.ResponseWriter, r *http.Request) (string, 
 		return "", false
 	}
 	return clean, true
+}
+
+// handleProjectRaw sirve los bytes crudos de un archivo del repositorio
+// (query param `path`, relativo a la raíz) con su Content-Type detectado, para
+// que el visor pueda incrustar imágenes con <img src>.
+func (s *Server) handleProjectRaw(w http.ResponseWriter, r *http.Request) {
+	p, err := s.store.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	clean, ok := s.cleanRepoPath(w, r)
+	if !ok {
+		return
+	}
+
+	abs := filepath.Join(p.Path, clean)
+	info, err := os.Stat(abs)
+	if err != nil || info.IsDir() {
+		s.failMsg(w, "el path no existe o no es un archivo", http.StatusNotFound)
+		return
+	}
+
+	// Content-Type por extensión, con un fallback de sniffing por contenido
+	// (mime.TypeByExtension no cubre todo y http.ServeContent ya lo afinaría,
+	// pero queremos cabeceras explícitas para las imágenes).
+	ctype := mime.TypeByExtension(filepath.Ext(abs))
+	f, err := os.Open(abs)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	if ctype == "" {
+		head := make([]byte, 512)
+		n, _ := f.Read(head)
+		ctype = http.DetectContentType(head[:n])
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			s.fail(w, err, http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", ctype)
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
 // ── Diff de un archivo individual ────────────────────────────────

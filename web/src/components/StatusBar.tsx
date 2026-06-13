@@ -1,7 +1,6 @@
-// Barra de estado inferior (estilo editor): identidad, proyecto en foco,
-// switch del Modo Mapa (ON = mapa táctico, OFF = consola), menú de proyectos
-// abiertos (esquina inferior derecha, para saltar entre ellos), notificaciones
-// pendientes y estado del enlace WebSocket.
+// Barra de estado inferior (estilo editor): identidad, proyecto en foco, menú
+// de proyectos abiertos (esquina inferior derecha, para saltar entre ellos),
+// notificaciones pendientes y estado del enlace WebSocket.
 import { useState } from 'react';
 
 import { openProject } from '../lib/projects';
@@ -20,7 +19,6 @@ export function StatusBar() {
   const projects = useStore((s) => s.projects);
   const activeIds = useStore((s) => s.activeIds);
   const unread = useStore((s) => s.unread);
-  const mapOn = useStore((s) => s.viewMode === 'map');
 
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -48,38 +46,6 @@ export function StatusBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-4">
-        {/* Switch del modo de vista: ON = Mapa Táctico, OFF = Consola */}
-        {focused && (
-          <button
-            role="switch"
-            aria-checked={mapOn}
-            className="group flex cursor-pointer items-center gap-2"
-            onClick={() => useStore.getState().setViewMode(mapOn ? 'console' : 'map')}
-            title={
-              mapOn
-                ? 'Modo Mapa Táctico activo · clic para volver a la consola'
-                : 'Modo Consola activo · clic para abrir el mapa táctico'
-            }
-          >
-            <span className={`hud-label transition-colors ${mapOn ? '!text-gold' : ''}`}>
-              MAPA
-            </span>
-            <span
-              className={`relative h-3.5 w-7 rounded-full border transition-colors ${
-                mapOn
-                  ? 'border-[var(--border-active)] bg-[rgba(255,255,255,0.16)]'
-                  : 'border-[var(--border-primary)] bg-[var(--bg-tertiary)] group-hover:border-[var(--border-active)]'
-              }`}
-            >
-              <span
-                className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full transition-all duration-200 ${
-                  mapOn ? 'left-[15px] bg-gold' : 'left-[2px] bg-[var(--text-muted)]'
-                }`}
-              />
-            </span>
-          </button>
-        )}
-
         {/* Notificaciones pendientes: clic → panel de proyectos */}
         <button
           className={`flex items-center gap-1.5 transition-colors ${

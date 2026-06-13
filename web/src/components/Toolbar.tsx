@@ -16,7 +16,6 @@ const NO_TERMS: TermInfo[] = [];
 export function Toolbar() {
   const focusedId = useStore((s) => s.focusedId);
   const unread = useStore((s) => s.unread);
-  const viewMode = useStore((s) => s.viewMode);
   const focusedTermId = useStore((s) => s.focusedTermId);
   const snap = useStore((s) => (s.focusedId ? s.git[s.focusedId] : undefined));
   const terminals = useStore((s) =>
@@ -26,11 +25,10 @@ export function Toolbar() {
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
   const dirty = (snap?.files?.length ?? 0) > 0;
 
-  // Clic en una consola del grupo: pasa a ser LA terminal visible — en el
-  // workspace (Modo Consola) o en su modal (Modo Mapa).
+  // Clic en una consola del grupo: pasa a ser LA terminal visible en su modal.
   const openTerm = (termId: string) => {
     useStore.getState().focusTerm(termId);
-    if (viewMode === 'map') useStore.getState().setTerminalModalOpen(true);
+    useStore.getState().setTerminalModalOpen(true);
   };
 
   const newTerminal = async () => {

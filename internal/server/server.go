@@ -59,6 +59,7 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/projects/{id}/diff", s.handleProjectDiff)
 	mux.HandleFunc("GET /api/projects/{id}/tree", s.handleProjectTree)
 	mux.HandleFunc("GET /api/projects/{id}/file", s.handleProjectFile)
+	mux.HandleFunc("GET /api/projects/{id}/raw", s.handleProjectRaw)
 	mux.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
 	mux.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
 
@@ -77,10 +78,18 @@ func spaHandler(dist fs.FS) http.Handler {
 		}
 		if f, err := dist.Open(p); err == nil {
 			f.Close()
+			// index.html no se cachea (siempre revalida y referencia los assets
+			// actuales); el resto lleva hash de contenido → inmutable.
+			if p == "index.html" {
+				w.Header().Set("Cache-Control", "no-cache")
+			} else {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
 			fileServer.ServeHTTP(w, r)
 			return
 		}
 		// Fallback SPA: cualquier ruta desconocida devuelve el index.
+		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		f, err := dist.Open("index.html")
 		if err != nil {
