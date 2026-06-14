@@ -159,8 +159,43 @@ Otros targets:
 ```bash
 make lint           # go vet ./...
 make test           # go test ./... (CGO_ENABLED=0)
-make clean          # elimina binario y web/dist
+make release-check  # dry-run de release con GoReleaser (sin publicar)
+make clean          # elimina binario, web/dist y dist
 ```
+
+## Releases e instalación
+
+Binarios precompilados para **Linux (amd64 y arm64)** en
+[Releases](https://github.com/kpilo07/agent-p/releases):
+
+```bash
+# Descarga el .tar.gz de tu arquitectura, p. ej. amd64:
+tar xzf agent-p_<versión>_linux_amd64.tar.gz
+./agent-p -version      # comprueba la build
+./agent-p               # http://127.0.0.1:8089
+```
+
+Verifica la integridad con `checksums.txt`:
+
+```bash
+sha256sum -c checksums.txt --ignore-missing
+```
+
+### Publicar una versión (mantenedores)
+
+El versionado sigue [SemVer](https://semver.org). Las releases las genera
+**GoReleaser** desde GitHub Actions al empujar un tag `vX.Y.Z`:
+
+```bash
+# 1) actualiza CHANGELOG.md (mueve lo de [Unreleased] a la nueva versión)
+# 2) crea y empuja el tag
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+El workflow compila el frontend, cross-compila el binario, empaqueta los
+`.tar.gz` con checksums, genera el changelog y crea la Release. La versión,
+el commit y la fecha se inyectan en el binario (visibles con `-version`).
 
 ## Autenticación
 

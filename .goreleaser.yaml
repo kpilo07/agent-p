@@ -1,0 +1,73 @@
+# GoReleaser — empaqueta agent-p como binario único con el frontend embebido.
+# Release oficial:   git tag vX.Y.Z && git push origin vX.Y.Z   (lo dispara CI)
+# Prueba local:      make release-check   (snapshot, sin publicar)
+version: 2
+
+project_name: agent-p
+
+# El embed (//go:embed all:web/dist) exige el frontend compilado ANTES de
+# `go build`. Este hook lo genera una vez para todos los targets.
+before:
+  hooks:
+    - sh -c "cd web && pnpm install --frozen-lockfile && pnpm build"
+
+builds:
+  - id: agent-p
+    main: ./cmd/api
+    binary: agent-p
+    env:
+      - CGO_ENABLED=0 # SQLite puro (modernc) → binario estático, cross-compila sin C
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .ShortCommit }}
+      - -X main.date={{ .Date }}
+
+archives:
+  - id: agent-p
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "Novedades"
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: "Correcciones"
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: "Otros cambios"
+      order: 999
+
+release:
+  github:
+    owner: kpilo07
+    name: agent-p
+  draft: false
+  # Tags como v0.1.0-rc.1 se marcan como prerelease automáticamente.
+  prerelease: auto
+  name_template: "v{{ .Version }}"

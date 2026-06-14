@@ -1,6 +1,10 @@
 # ===== Go / backend =====
 # Binario compilado (Makefile: BINARY := agent-p)
 /agent-p
+# Binario antiguo (nombre previo del proyecto), no debe rastrearse
+/p-agent
+# Salida de GoReleaser (release --snapshot / release)
+/dist/
 # Otros binarios sueltos
 *.exe
 *.exe~

@@ -37,6 +37,14 @@ import (
 	"agent-p/internal/project/service"
 )
 
+// Metadatos de build inyectados por el linker (-ldflags "-X main.version=…").
+// Valores por defecto para `go run`/builds locales sin ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "fatal:", err)
@@ -46,11 +54,17 @@ func main() {
 
 func run() error {
 	var (
-		addr     = flag.String("addr", "127.0.0.1:8089", "dirección de escucha HTTP")
-		dbPath   = flag.String("db", defaultDBPath(), "ruta del fichero SQLite")
-		interval = flag.Duration("poll", 2*time.Second, "intervalo de sondeo de git")
+		addr        = flag.String("addr", "127.0.0.1:8089", "dirección de escucha HTTP")
+		dbPath      = flag.String("db", defaultDBPath(), "ruta del fichero SQLite")
+		interval    = flag.Duration("poll", 2*time.Second, "intervalo de sondeo de git")
+		showVersion = flag.Bool("version", false, "imprime la versión y termina")
 	)
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("agent-p %s (commit %s, built %s)\n", version, commit, date)
+		return nil
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
@@ -128,7 +142,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("agent-p listening", "url", "http://"+*addr)
+		log.Info("agent-p listening", "version", version, "url", "http://"+*addr)
 		if err := httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

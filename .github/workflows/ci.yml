@@ -1,0 +1,41 @@
+# Verificación en cada push/PR: vet + tests del backend y build del frontend.
+# Mantiene main en verde para poder taggear releases con confianza.
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Vet
+        run: CGO_ENABLED=0 go vet ./...
+      - name: Test
+        run: CGO_ENABLED=0 go test ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install
+        run: cd web && pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: cd web && pnpm exec tsc --noEmit
+      - name: Build
+        run: cd web && pnpm build
