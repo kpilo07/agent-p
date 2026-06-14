@@ -16,6 +16,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      # `//go:embed all:web/dist` exige que el directorio exista al compilar.
+      # vet/test no necesitan el frontend real, así que basta un stub mínimo
+      # (en build/release sí se genera con pnpm).
+      - name: Stub del frontend embebido
+        run: mkdir -p web/dist && echo '<!doctype html><title>stub</title>' > web/dist/index.html
       - name: Vet
         run: CGO_ENABLED=0 go vet ./...
       - name: Test
