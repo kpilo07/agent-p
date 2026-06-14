@@ -15,6 +15,7 @@ const AGENT_PRESETS = [
   { label: 'Claude Code', cmd: 'claude' },
   { label: 'Codex', cmd: 'codex' },
   { label: 'Gemini CLI', cmd: 'gemini' },
+  { label: 'Cursor', cmd: 'cursor-agent' },
   { label: 'Aider', cmd: 'aider' },
   { label: 'OpenCode', cmd: 'opencode' },
   { label: 'Shell', cmd: '' },
