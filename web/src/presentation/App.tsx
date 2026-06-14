@@ -1,25 +1,45 @@
 // Layout principal. Orquesta el estado global y conecta los adaptadores
 // de infraestructura con la capa de presentación.
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Toaster } from 'sileo';
 
 import { apiClient } from '../infrastructure/api/ApiClient';
 import { wsClient } from '../infrastructure/ws/WsClient';
 import { projectService } from '../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../infrastructure/store/store';
+// Estáticos: ligeros y presentes en la primera pintura (login / Home).
 import { Toolbar } from './components/layout/Toolbar';
-import { NodeMap } from './components/layout/NodeMap';
 import { Home } from './components/layout/Home';
 import { StatusBar } from './components/layout/StatusBar';
-import { ProjectsModal } from './components/shared/ProjectsModal';
-import { TerminalModal } from './components/shared/TerminalModal';
-import { DiffModal } from './components/shared/DiffModal';
-import { ActivityModal } from './components/shared/ActivityModal';
-import { FileViewerModal } from './components/shared/FileViewerModal';
-import { FileSearchModal } from './components/shared/FileSearchModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+
+// Diferidos (code-splitting): componentes pesados o que no se necesitan en el
+// arranque. Cada uno arrastra su librería grande a su propio chunk async, fuera
+// del bundle inicial:
+//   · NodeMap        → @xyflow/react + xterm (vía TerminalView)
+//   · FileViewerModal→ marked + highlight.js
+//   · DiffModal      → highlight.js
+//   · TerminalModal  → xterm
+// Los named exports se adaptan a default export para React.lazy.
+const NodeMap = lazy(() => import('./components/layout/NodeMap').then((m) => ({ default: m.NodeMap })));
+const ProjectsModal = lazy(() =>
+  import('./components/shared/ProjectsModal').then((m) => ({ default: m.ProjectsModal })),
+);
+const TerminalModal = lazy(() =>
+  import('./components/shared/TerminalModal').then((m) => ({ default: m.TerminalModal })),
+);
+const DiffModal = lazy(() => import('./components/shared/DiffModal').then((m) => ({ default: m.DiffModal })));
+const ActivityModal = lazy(() =>
+  import('./components/shared/ActivityModal').then((m) => ({ default: m.ActivityModal })),
+);
+const FileViewerModal = lazy(() =>
+  import('./components/shared/FileViewerModal').then((m) => ({ default: m.FileViewerModal })),
+);
+const FileSearchModal = lazy(() =>
+  import('./components/shared/FileSearchModal').then((m) => ({ default: m.FileSearchModal })),
+);
 
 const TOASTER_OFFSET = { bottom: 40, right: 64 } as const;
 const TOASTER_OPTIONS = { duration: 6000, fill: '#000000' } as const;
@@ -117,7 +137,9 @@ function MainApp() {
         <div className="min-w-0 flex-1">
           {focused ? (
             <ErrorBoundary key={focused.id} resetKey={focused.id} label="El mapa de nodos no se pudo renderizar">
-              <NodeMap />
+              <Suspense fallback={<div className="glass-panel glass-panel--terminal h-full" />}>
+                <NodeMap />
+              </Suspense>
             </ErrorBoundary>
           ) : (
             <Home />
@@ -128,12 +150,15 @@ function MainApp() {
       <StatusBar />
 
       <Toolbar />
-      {projectsOpen && <ProjectsModal />}
-      {diffOpen && <DiffModal />}
-      {activityOpen && focused && <ActivityModal />}
-      {terminalOpen && focused && <TerminalModal />}
-      {searchOpen && focused && <FileSearchModal />}
-      {selectedFile && <FileViewerModal />}
+      {/* Los modales se cargan bajo demanda; el fallback nulo evita parpadeo. */}
+      <Suspense fallback={null}>
+        {projectsOpen && <ProjectsModal />}
+        {diffOpen && <DiffModal />}
+        {activityOpen && focused && <ActivityModal />}
+        {terminalOpen && focused && <TerminalModal />}
+        {searchOpen && focused && <FileSearchModal />}
+        {selectedFile && <FileViewerModal />}
+      </Suspense>
       <Toaster
         position="bottom-right"
         theme="dark"

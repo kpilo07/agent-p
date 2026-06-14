@@ -68,6 +68,22 @@ export default defineConfig({
       },
     ],
   },
+  optimization: {
+    // Solo separamos el runtime de React a su propio chunk (caché estable entre
+    // builds). El resto del splitting se deja al comportamiento por defecto, que
+    // mantiene las librerías usadas SOLO desde imports dinámicos (xyflow, xterm,
+    // highlight, marked) en sus chunks async — fuera del bundle inicial.
+    splitChunks: {
+      cacheGroups: {
+        reactVendor: {
+          test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+          name: 'vendor-react',
+          chunks: 'all',
+          priority: 20,
+        },
+      },
+    },
+  },
   plugins: [
     new rspack.HtmlRspackPlugin({
       template: './index.html',
