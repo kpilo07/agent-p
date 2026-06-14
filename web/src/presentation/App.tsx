@@ -1,6 +1,6 @@
 // Layout principal. Orquesta el estado global y conecta los adaptadores
 // de infraestructura con la capa de presentación.
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from 'sileo';
 
 import { apiClient } from '../infrastructure/api/ApiClient';
@@ -17,6 +17,9 @@ import { DiffModal } from './components/shared/DiffModal';
 import { ActivityModal } from './components/shared/ActivityModal';
 import { FileViewerModal } from './components/shared/FileViewerModal';
 import { FileSearchModal } from './components/shared/FileSearchModal';
+import { AuthScreen } from './components/auth/AuthScreen';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 
 const TOASTER_OFFSET = { bottom: 40, right: 64 } as const;
 const TOASTER_OPTIONS = { duration: 6000, fill: '#000000' } as const;
@@ -33,7 +36,37 @@ projectService.setStore({
   pushToast: (toast) => useStore.getState().pushToast(toast),
 });
 
+type AuthState = 'loading' | 'setup' | 'login' | 'ready';
+
+// AuthGate decide qué mostrar al cargar: pantalla de setup, de login, o la app.
+// Es el export por defecto; MainApp solo se monta cuando hay sesión válida.
 export default function App() {
+  const [auth, setAuth] = useState<AuthState>('loading');
+
+  const refreshStatus = () => {
+    apiClient
+      .authStatus()
+      .then((s) => setAuth(s.authenticated ? 'ready' : s.needsSetup ? 'setup' : 'login'))
+      .catch(() => setAuth('login'));
+  };
+
+  useEffect(refreshStatus, []);
+
+  // Si una llamada protegida devuelve 401 (sesión caducada), rebota a login.
+  useEffect(() => {
+    apiClient.onUnauthorized(() => setAuth('login'));
+  }, []);
+
+  if (auth === 'loading') {
+    return <div className="h-full w-full bg-[var(--bg-void)]" />;
+  }
+  if (auth === 'setup' || auth === 'login') {
+    return <AuthScreen mode={auth} onAuthenticated={refreshStatus} />;
+  }
+  return <MainApp />;
+}
+
+function MainApp() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
   const activityOpen = useStore((s) => s.activityModalOpen);
@@ -64,16 +97,7 @@ export default function App() {
     return () => wsClient.unsubscribeProject(focused.id);
   }, [focused?.id, wsOpen]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (useStore.getState().focusedId) useStore.getState().setSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  useGlobalShortcuts();
 
   useEffect(() => {
     if (!focused || snap) return;
@@ -90,7 +114,15 @@ export default function App() {
   return (
     <div className="relative flex h-full flex-col bg-[var(--bg-void)]">
       <main className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1.5 p-1.5">
-        <div className="min-w-0 flex-1">{focused ? <NodeMap /> : <Home />}</div>
+        <div className="min-w-0 flex-1">
+          {focused ? (
+            <ErrorBoundary key={focused.id} resetKey={focused.id} label="El mapa de nodos no se pudo renderizar">
+              <NodeMap />
+            </ErrorBoundary>
+          ) : (
+            <Home />
+          )}
+        </div>
       </main>
 
       <StatusBar />

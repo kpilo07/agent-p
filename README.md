@@ -11,6 +11,9 @@ Un **único binario Go** sin CGO que sirve el frontend de React embebido vía
 
 ## Novedades recientes
 
+- 🔐 **Autenticación** (contexto acotado `auth`): usuarios locales propios en
+  SQLite con hashing PBKDF2-HMAC-SHA256. En el primer arranque se crea el primer
+  usuario; después, login con cookie de sesión `HttpOnly`. Ver [Autenticación](#autenticación).
 - 🗺️ **Mapa de nodos** (`NodeMap`, vía `@xyflow/react`): los proyectos se
   visualizan como un grafo interactivo, no solo como lista.
 - 📜 **Registro de actividad** (`activity`): cada proyecto acumula un historial
@@ -65,6 +68,12 @@ agent-p/
 ├── Makefile
 └── internal/
     ├── platform/storage/sqlite.go  # Factory de conexión SQLite (WAL, foreign keys)
+    ├── auth/                       # CONTEXTO ACOTADO: usuarios y sesiones locales
+    │   ├── domain/auth.go          # User, Session, puertos y errores
+    │   ├── service/service.go      # AuthUseCases: Setup, Login, Logout, Authenticate
+    │   └── infrastructure/
+    │       ├── crypto/pbkdf2.go    # PasswordHasher (PBKDF2-HMAC-SHA256, stdlib)
+    │       └── sqlite/repository.go # User/SessionRepository (tablas auth_*)
     └── project/                    # CONTEXTO ACOTADO: gestión de proyectos
         ├── domain/                 # El Hexágono — Go puro, sin dependencias externas
         │   ├── project.go          # Entidades: Project, Session, GitSnapshot, TermInfo…
@@ -81,8 +90,9 @@ agent-p/
             ├── fswatch/watcher.go      # FSWatcher → fsnotify
             ├── activity/recorder.go    # Registro de actividad por proyecto
             └── http/                   # Adaptador driving → handlers HTTP
-                ├── server.go           # Rutas + fallback de SPA embebida
+                ├── server.go           # Rutas + middleware de auth + fallback SPA
                 ├── project_handler.go
+                ├── auth_handler.go     # /api/auth/* + requireAuth (cookie de sesión)
                 └── tree_handler.go     # Árbol de archivos / lectura de ficheros
 ```
 
@@ -116,10 +126,11 @@ web/                                # Rspack 2 + React 19 + Tailwind v4
     │   ├── ui/HighlightService.ts  # Resaltado de sintaxis (highlight.js)
     │   └── store/store.ts          # Estado global UI — Zustand (único lugar)
     └── presentation/               # Capa React — solo UI
-        ├── App.tsx                 # Raíz: cablea adaptadores con casos de uso
+        ├── App.tsx                 # Raíz: AuthGate (setup/login/app) + cableado
         ├── components/
         │   ├── ui/                 # Atómicos: icons, ModalShell, Blendy, AgentLogo
-        │   ├── layout/             # StatusBar, Toolbar, Home, NodeMap
+        │   ├── auth/AuthScreen.tsx # Pantalla de setup (primer usuario) y de login
+        │   ├── layout/             # StatusBar (incl. botón SALIR), Toolbar, Home, NodeMap
         │   └── shared/             # DiffModal/View, TerminalModal/View, ActivityModal,
         │                           # FileSearchModal, FileViewerModal, DirBrowser,
         │                           # ProjectsModal, AddProjectModal
@@ -151,13 +162,46 @@ make test           # go test ./... (CGO_ENABLED=0)
 make clean          # elimina binario y web/dist
 ```
 
+## Autenticación
+
+agent-p protege la UI con un **módulo de usuarios propio** (contexto acotado
+`auth`), no con credenciales del sistema operativo: PAM exigiría CGO —incompatible
+con el binario único `CGO_ENABLED=0`— y no encaja con un servidor TCP local.
+
+- **Primer arranque:** si no existe ningún usuario, la app muestra la pantalla
+  «Crear primer usuario» (será el administrador).
+- **Después:** pantalla de login. La sesión viaja en una cookie `HttpOnly` +
+  `SameSite=Lax` (caducidad 7 días) y se limpia con el botón **SALIR**.
+- **Contraseñas:** hash **PBKDF2-HMAC-SHA256** (600 000 iteraciones, salt
+  aleatorio) vía `crypto/pbkdf2` de la stdlib — sin dependencias externas ni CGO.
+- **Persistencia:** tablas `auth_users` y `auth_sessions` en el mismo SQLite.
+
+Protección de rutas (en `infrastructure/http`):
+
+| Ruta | Acceso |
+|---|---|
+| `GET /api/auth/status` | público — decide qué pantalla mostrar |
+| `POST /api/auth/setup` | público — solo si aún no hay usuarios |
+| `POST /api/auth/login` · `POST /api/auth/logout` | público |
+| `GET /ws` y el resto de `/api/*` | **requiere sesión** (`requireAuth`) |
+| assets de la SPA | público — para poder servir la pantalla de login |
+
+```bash
+# Comprobar el estado de autenticación
+curl -s http://127.0.0.1:8089/api/auth/status
+# → {"needsSetup":true,"authenticated":false}   (primer arranque)
+```
+
 ## Notas de seguridad
 
 Esta herramienta expone PTYs (ejecución de comandos). Por eso:
 - escucha solo en `127.0.0.1` por defecto;
-- el upgrade WebSocket rechaza `Origin` no locales (anti DNS-rebinding).
+- el upgrade WebSocket rechaza `Origin` no locales (anti DNS-rebinding);
+- el acceso a la UI exige autenticación (ver [Autenticación](#autenticación)).
 
-No la expongas a la red sin añadir autenticación.
+Si la expones en red, sirve detrás de **TLS** y marca la cookie como `Secure`:
+al ser HTTP local la cookie de sesión viaja sin cifrar, lo cual es aceptable
+solo en `127.0.0.1`.
 
 ## Requisitos en runtime
 

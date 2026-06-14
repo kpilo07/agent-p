@@ -141,6 +141,14 @@ export const IconLogo = (p: IconProps) => (
   </Svg>
 );
 
+export const IconLogout = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="m16 17 5-5-5-5" />
+    <path d="M21 12H9" />
+  </Svg>
+);
+
 export const IconLayers = (p: IconProps) => (
   <Svg {...p}>
     <path d="m12 2 10 6.5-10 6.5L2 8.5 12 2Z" />

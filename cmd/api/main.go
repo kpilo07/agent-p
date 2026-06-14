@@ -23,6 +23,9 @@ import (
 	"time"
 
 	agentspa "agent-p"
+	authcrypto "agent-p/internal/auth/infrastructure/crypto"
+	authsqlite "agent-p/internal/auth/infrastructure/sqlite"
+	authservice "agent-p/internal/auth/service"
 	"agent-p/internal/project/domain"
 	"agent-p/internal/project/infrastructure/activity"
 	"agent-p/internal/project/infrastructure/fswatch"
@@ -62,8 +65,21 @@ func run() error {
 	}
 	defer store.Close()
 
+	// Almacén de autenticación (mismo fichero SQLite, tablas auth_*).
+	authStore, err := authsqlite.Open(*dbPath)
+	if err != nil {
+		return err
+	}
+	defer authStore.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Servicio de autenticación + limpieza de sesiones caducadas al arrancar.
+	authSvc := authservice.New(authStore, authStore, authcrypto.New())
+	if err := authStore.DeleteExpired(ctx); err != nil {
+		log.Warn("could not prune expired sessions", "err", err)
+	}
 
 	h := hub.New(log)
 	go h.Run(ctx)
@@ -104,7 +120,7 @@ func run() error {
 		return err
 	}
 
-	srv := httpadapter.New(log, svc, h)
+	srv := httpadapter.New(log, svc, authSvc, h)
 	httpServer := &http.Server{
 		Addr:    *addr,
 		Handler: srv.Handler(dist),

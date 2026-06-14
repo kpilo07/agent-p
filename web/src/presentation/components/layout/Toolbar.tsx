@@ -5,6 +5,7 @@
 // de la StatusBar (esquina inferior derecha).
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import { AGENT_TERM_ID, useStore, type TermInfo } from '../../../infrastructure/store/store';
+import { createAndOpenTerminal } from '../../hooks/useTerminals';
 import {
   IconActivity,
   IconFolder,
@@ -55,31 +56,8 @@ export function Toolbar() {
   };
 
   // Clic en una consola del grupo: si está anclada al tablero, centra la cámara
-  // en su nodo; si no, la abre en su modal.
-  const openTerm = (termId: string) => {
-    if (isPinned(termId)) {
-      useStore.getState().focusPinned(termId);
-      return;
-    }
-    useStore.getState().focusTerm(termId);
-    useStore.getState().setTerminalModalOpen(true);
-  };
-
-  const newTerminal = async () => {
-    if (!focusedId) return;
-    try {
-      // El session_state del backend la añade al grupo; aquí la enfocamos
-      // para que aparezca de inmediato.
-      const t = await api.createTerminal(focusedId);
-      openTerm(t.id);
-    } catch (err) {
-      useStore.getState().pushToast({
-        level: 'error',
-        title: 'Terminal',
-        message: (err as Error).message,
-      });
-    }
-  };
+  // en su nodo; si no, la abre en su modal. (Lógica compartida en el store.)
+  const openTerm = (termId: string) => useStore.getState().openTerminal(termId);
 
   return (
     <div className="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-lg border border-[var(--border-primary)] bg-[rgba(0,0,0,0.8)] p-1.5">
@@ -87,7 +65,7 @@ export function Toolbar() {
       <button
         className={ghostBtn}
         onClick={() => useStore.getState().setProjectsModalOpen(true)}
-        title="Panel de proyectos"
+        title="Panel de proyectos · Ctrl+P"
       >
         <IconFolder className="h-4.5 w-4.5" />
         {totalUnread > 0 && (
@@ -145,7 +123,11 @@ export function Toolbar() {
           )}
 
           {/* Nueva consola en el grupo */}
-          <button className={ghostBtn} onClick={newTerminal} title="Nueva terminal">
+          <button
+            className={ghostBtn}
+            onClick={() => void createAndOpenTerminal()}
+            title="Nueva terminal · Ctrl+`"
+          >
             <IconPlus className="h-4.5 w-4.5" />
           </button>
 

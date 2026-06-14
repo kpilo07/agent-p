@@ -11,7 +11,18 @@ import type {
   TreeNode,
 } from '../project';
 
+export interface AuthStatus {
+  needsSetup: boolean;
+  authenticated: boolean;
+}
+
 export interface IApiRepository {
+  // Autenticación
+  authStatus(): Promise<AuthStatus>;
+  authSetup(username: string, password: string): Promise<void>;
+  authLogin(username: string, password: string): Promise<void>;
+  authLogout(): Promise<void>;
+
   // Proyectos
   listProjects(): Promise<Project[]>;
   createProject(data: { name: string; path: string; cliCommand: string }): Promise<Project>;

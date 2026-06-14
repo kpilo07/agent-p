@@ -420,6 +420,36 @@ function PinnedFocuser({ projectId }: { projectId: string }) {
   return null;
 }
 
+// AutoFitter mantiene el mapa encuadrado cuando la ESTRUCTURA del árbol cambia
+// (se añaden/quitan nodos por fs_change). Sin esto, como React Flow solo encuadra
+// al inicio, un cambio reordena las coordenadas y el viewport queda apuntando a
+// una zona vacía → el mapa "desaparece". Respeta la navegación manual: si el
+// usuario ya hizo zoom/pan, no reencuadra (userMovedRef). Debe vivir DENTRO de
+// <ReactFlow> para acceder a su instancia.
+function AutoFitter({
+  structureKey,
+  userMovedRef,
+}: {
+  structureKey: string;
+  userMovedRef: React.RefObject<boolean>;
+}) {
+  const rf = useReactFlow();
+  const first = useRef(true);
+
+  useEffect(() => {
+    if (first.current) {
+      // El primer encuadre lo hace la prop fitView; aquí solo reaccionamos a cambios.
+      first.current = false;
+      return;
+    }
+    if (userMovedRef.current) return; // el usuario tomó el control de la cámara
+    const t = setTimeout(() => rf.fitView({ padding: 0.15, duration: 400 }), 250);
+    return () => clearTimeout(t);
+  }, [structureKey, rf, userMovedRef]);
+
+  return null;
+}
+
 // El minimapa refleja el estado de cada nodo:
 // verde = nuevo, ámbar = modificado, gris = sin cambios.
 function minimapNodeColor(n: Node): string {
@@ -445,6 +475,9 @@ export function NodeMap() {
 
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [reloadSeq, setReloadSeq] = useState(0);
+  // ¿El usuario tomó el control de la cámara (zoom/pan manual)? Si no, el mapa
+  // se reencuadra solo cuando cambia la estructura, para no perderlo de vista.
+  const userMovedRef = useRef(false);
   const [bgCfg, setBgCfg] = useState<BgConfig>(loadBgConfig);
   const [bgMenuOpen, setBgMenuOpen] = useState(false);
   const bgMenuRef = useRef<HTMLDivElement>(null);
@@ -491,6 +524,12 @@ export function NodeMap() {
     setHoverRows(null);
   };
 
+  // Al cambiar de proyecto o al recargar manualmente el árbol, devolvemos el
+  // control de encuadre al mapa (recentrar).
+  useEffect(() => {
+    userMovedRef.current = false;
+  }, [focused?.id, reloadSeq]);
+
   useEffect(() => {
     if (!focused) return;
     let cancelled = false;
@@ -514,6 +553,17 @@ export function NodeMap() {
     const gitByPath = new Map((snap?.files ?? []).map((f) => [f.path, f]));
     return buildGraph(tree, focused.name, expanded ?? [], alerts ?? {}, gitByPath);
   }, [tree, focused?.id, focused?.name, expanded, alerts, snap?.files]);
+
+  // Firma de la ESTRUCTURA (conjunto de ids de nodos): cambia al añadirse/
+  // quitarse archivos o expandir/colapsar carpetas, pero NO ante meros cambios
+  // de contenido (git_update). Dispara el reencuadre automático.
+  const structureKey = useMemo(() => {
+    let h = nodes.length;
+    for (const n of nodes) {
+      for (let i = 0; i < n.id.length; i++) h = (h * 31 + n.id.charCodeAt(i)) | 0;
+    }
+    return String(h);
+  }, [nodes]);
 
   // Nodos de las terminales ancladas (independientes del árbol del repo).
   const termNodes = useMemo<TermNode[]>(() => {
@@ -552,6 +602,13 @@ export function NodeMap() {
         });
       }
     }
+  };
+
+  // Pan/zoom MANUAL del usuario (event != null): a partir de ahí dejamos de
+  // reencuadrar solos. Los movimientos programáticos (fitView) traen event=null.
+  const handleMoveStart = (event: MouseEvent | TouchEvent | null) => {
+    if (event) userMovedRef.current = true;
+    hideHover();
   };
 
   if (!focused) return null;
@@ -643,7 +700,7 @@ export function NodeMap() {
         onNodeClick={onNodeClick}
         onNodeMouseEnter={onNodeMouseEnter}
         onNodeMouseLeave={hideHover}
-        onMoveStart={hideHover}
+        onMoveStart={handleMoveStart}
         colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -658,6 +715,7 @@ export function NodeMap() {
         style={{ background: 'transparent' }}
       >
         <PinnedFocuser projectId={focused.id} />
+        <AutoFitter structureKey={structureKey} userMovedRef={userMovedRef} />
         {bgVariant !== null && (
           <Background
             variant={bgVariant}

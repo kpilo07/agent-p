@@ -79,6 +79,7 @@ interface AppState {
   clearFileAlert: (projectId: string, path: string) => void;
   setSelectedFile: (path: string | null) => void;
   setTerminalModalOpen: (open: boolean) => void;
+  openTerminal: (termId: string) => void;
   setSearchOpen: (open: boolean) => void;
   pushToast: (toast: Toast) => void;
   handleServerEvent: (evt: ServerEvent) => void;
@@ -240,6 +241,18 @@ export const useStore = create<AppState>((set, get) => ({
   setSelectedFile: (selectedFile) => set({ selectedFile }),
 
   setTerminalModalOpen: (terminalModalOpen) => set({ terminalModalOpen }),
+
+  // Abre una consola: si está anclada al tablero, centra su nodo; si no, la
+  // enfoca en el modal. Lógica de UI compartida por la Toolbar y los atajos.
+  openTerminal: (termId) => {
+    const s = get();
+    const pid = s.focusedId;
+    if (pid && s.pinnedTerms[pid]?.some((p) => p.termId === termId)) {
+      get().focusPinned(termId);
+      return;
+    }
+    set({ focusedTermId: termId, terminalModalOpen: true });
+  },
 
   setSearchOpen: (searchOpen) => set({ searchOpen }),
 

@@ -1,6 +1,6 @@
 // ADAPTADOR de salida: implementa IApiRepository usando fetch.
 // Patrón: Singleton + Repository
-import type { IApiRepository } from '../../core/domain/ports/IApiRepository';
+import type { AuthStatus, IApiRepository } from '../../core/domain/ports/IApiRepository';
 import type {
   ActivityEvent,
   FileContent,
@@ -15,6 +15,10 @@ import type {
 class ApiClient implements IApiRepository {
   private static instance: ApiClient | null = null;
 
+  // Handler invocado ante un 401 (sesión ausente o caducada). La capa de
+  // presentación lo usa para volver a la pantalla de login.
+  private unauthorizedHandler: (() => void) | null = null;
+
   private constructor() {}
 
   static getInstance(): ApiClient {
@@ -24,16 +28,46 @@ class ApiClient implements IApiRepository {
     return ApiClient.instance;
   }
 
+  onUnauthorized(handler: () => void): void {
+    this.unauthorizedHandler = handler;
+  }
+
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(path, {
       headers: { 'Content-Type': 'application/json' },
       ...init,
     });
     if (!res.ok) {
+      // El endpoint de status nunca debe disparar el rebote a login.
+      if (res.status === 401 && path !== '/api/auth/status') {
+        this.unauthorizedHandler?.();
+      }
       const body = await res.json().catch(() => ({}));
       throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
     }
     return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  }
+
+  authStatus(): Promise<AuthStatus> {
+    return this.request('/api/auth/status');
+  }
+
+  authSetup(username: string, password: string): Promise<void> {
+    return this.request('/api/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  }
+
+  authLogin(username: string, password: string): Promise<void> {
+    return this.request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  }
+
+  authLogout(): Promise<void> {
+    return this.request('/api/auth/logout', { method: 'POST' });
   }
 
   listProjects(): Promise<Project[]> {

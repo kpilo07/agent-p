@@ -11,48 +11,67 @@ import (
 	"path"
 	"strings"
 
+	authdomain "agent-p/internal/auth/domain"
 	"agent-p/internal/project/domain"
 	"agent-p/internal/project/infrastructure/hub"
 )
 
 // Server es el adaptador HTTP. Recibe los casos de uso por inyección.
 type Server struct {
-	log *slog.Logger
-	uc  domain.ProjectUseCases
-	hub *hub.Hub
+	log  *slog.Logger
+	uc   domain.ProjectUseCases
+	auth authdomain.AuthUseCases
+	hub  *hub.Hub
 }
 
 // New construye el adaptador HTTP.
-func New(log *slog.Logger, uc domain.ProjectUseCases, h *hub.Hub) *Server {
-	return &Server{log: log, uc: uc, hub: h}
+func New(log *slog.Logger, uc domain.ProjectUseCases, auth authdomain.AuthUseCases, h *hub.Hub) *Server {
+	return &Server{log: log, uc: uc, auth: auth, hub: h}
 }
 
 // Handler monta todas las rutas. dist es el frontend embebido (web/dist).
+//
+// Estructura de seguridad:
+//   - /api/auth/* → públicas (status, setup, login, logout).
+//   - /ws y el resto de /api/* → protegidas por requireAuth (cookie de sesión).
+//   - assets de la SPA → públicos, para poder servir la pantalla de login.
 func (s *Server) Handler(dist fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /ws", s.hub.ServeWS)
+	// Endpoints de autenticación (públicos). Patrones más específicos que
+	// "/api/" → el ServeMux les da precedencia sobre el grupo protegido.
+	mux.HandleFunc("GET /api/auth/status", s.handleAuthStatus)
+	mux.HandleFunc("POST /api/auth/setup", s.handleAuthSetup)
+	mux.HandleFunc("POST /api/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
 
-	mux.HandleFunc("GET /api/fs", s.handleBrowseFS)
-	mux.HandleFunc("GET /api/projects", s.handleListProjects)
-	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
-	mux.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
-	mux.HandleFunc("POST /api/projects/{id}/start", s.handleStartProject)
-	mux.HandleFunc("POST /api/projects/{id}/stop", s.handleStopProject)
-	mux.HandleFunc("POST /api/projects/{id}/interrupt", s.handleInterruptProject)
-	mux.HandleFunc("POST /api/projects/{id}/git/commit", s.handleGitCommit)
-	mux.HandleFunc("POST /api/projects/{id}/git/stash", s.handleGitStash)
-	mux.HandleFunc("POST /api/projects/{id}/git/discard", s.handleGitDiscard)
-	mux.HandleFunc("GET /api/projects/{id}/terminals", s.handleListTerminals)
-	mux.HandleFunc("POST /api/projects/{id}/terminals", s.handleCreateTerminal)
-	mux.HandleFunc("DELETE /api/projects/{id}/terminals/{termId}", s.handleCloseTerminal)
-	mux.HandleFunc("GET /api/projects/{id}/diff", s.handleProjectDiff)
-	mux.HandleFunc("GET /api/projects/{id}/tree", s.handleProjectTree)
-	mux.HandleFunc("GET /api/projects/{id}/file", s.handleProjectFile)
-	mux.HandleFunc("GET /api/projects/{id}/raw", s.handleProjectRaw)
-	mux.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
-	mux.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
-	mux.HandleFunc("GET /api/projects/{id}/activity", s.handleProjectActivity)
+	// Grupo protegido: WebSocket + toda la API de proyectos.
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /ws", s.hub.ServeWS)
+	protected.HandleFunc("GET /api/fs", s.handleBrowseFS)
+	protected.HandleFunc("GET /api/projects", s.handleListProjects)
+	protected.HandleFunc("POST /api/projects", s.handleCreateProject)
+	protected.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
+	protected.HandleFunc("POST /api/projects/{id}/start", s.handleStartProject)
+	protected.HandleFunc("POST /api/projects/{id}/stop", s.handleStopProject)
+	protected.HandleFunc("POST /api/projects/{id}/interrupt", s.handleInterruptProject)
+	protected.HandleFunc("POST /api/projects/{id}/git/commit", s.handleGitCommit)
+	protected.HandleFunc("POST /api/projects/{id}/git/stash", s.handleGitStash)
+	protected.HandleFunc("POST /api/projects/{id}/git/discard", s.handleGitDiscard)
+	protected.HandleFunc("GET /api/projects/{id}/terminals", s.handleListTerminals)
+	protected.HandleFunc("POST /api/projects/{id}/terminals", s.handleCreateTerminal)
+	protected.HandleFunc("DELETE /api/projects/{id}/terminals/{termId}", s.handleCloseTerminal)
+	protected.HandleFunc("GET /api/projects/{id}/diff", s.handleProjectDiff)
+	protected.HandleFunc("GET /api/projects/{id}/tree", s.handleProjectTree)
+	protected.HandleFunc("GET /api/projects/{id}/file", s.handleProjectFile)
+	protected.HandleFunc("GET /api/projects/{id}/raw", s.handleProjectRaw)
+	protected.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
+	protected.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
+	protected.HandleFunc("GET /api/projects/{id}/activity", s.handleProjectActivity)
+
+	guarded := s.requireAuth(protected)
+	mux.Handle("/api/", guarded)
+	mux.Handle("/ws", guarded)
 
 	mux.Handle("/", spaHandler(dist))
 	return mux

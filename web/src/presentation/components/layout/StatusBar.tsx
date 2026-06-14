@@ -3,10 +3,11 @@
 // notificaciones pendientes y estado del enlace WebSocket.
 import { useState } from 'react';
 
+import { apiClient } from '../../../infrastructure/api/ApiClient';
 import { projectService } from '../../../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { useGit } from '../../hooks/useGit';
-import { IconBell, IconChevronDown, IconGitBranch, IconLogo } from '../ui/icons';
+import { IconBell, IconChevronDown, IconGitBranch, IconLogo, IconLogout } from '../ui/icons';
 
 const WS_STATUS_STYLE = {
   open: { cls: 'notification-pulse--green', label: 'LINK ACTIVO' },
@@ -33,6 +34,15 @@ export function StatusBar() {
   const switchTo = (id: string) => {
     setMenuOpen(false);
     projectService.openProject(id);
+  };
+
+  // Logout: invalida la sesión y recarga para teardown limpio (incluido el WS).
+  const logout = async () => {
+    try {
+      await apiClient.authLogout();
+    } finally {
+      window.location.reload();
+    }
   };
 
   return (
@@ -75,6 +85,15 @@ export function StatusBar() {
           <span className={`notification-pulse ${status.cls}`} />
           <span className="hud-label">{status.label}</span>
         </span>
+
+        <button
+          className="flex items-center gap-1.5 text-muted transition-colors hover:text-gold"
+          onClick={logout}
+          title="Cerrar sesión"
+        >
+          <IconLogout className="h-3.5 w-3.5" />
+          <span className="hud-label">SALIR</span>
+        </button>
 
         {/* Menú de proyectos abiertos: salto rápido entre ellos */}
         {activeProjects.length > 0 && (
