@@ -87,6 +87,8 @@ export default defineConfig({
   plugins: [
     new rspack.HtmlRspackPlugin({
       template: './index.html',
+      // Copia favicon.svg a dist/ e inyecta <link rel="icon"> en index.html.
+      favicon: './favicon.svg',
     }),
     isDev && new ReactRefreshRspackPlugin(),
   ],

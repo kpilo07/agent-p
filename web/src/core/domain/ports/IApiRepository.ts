@@ -2,6 +2,8 @@
 // La implementación concreta vive en infrastructure/api/ApiClient.ts.
 import type {
   ActivityEvent,
+  Commit,
+  CommitDiff,
   FileContent,
   FileDiff,
   FsListing,
@@ -34,6 +36,8 @@ export interface IApiRepository {
   // Git
   getDiff(id: string): Promise<GitSnapshot>;
   getFileDiff(id: string, path: string): Promise<FileDiff>;
+  getCommits(id: string, limit?: number): Promise<Commit[]>;
+  getCommitDiff(id: string, hash: string): Promise<CommitDiff>;
   gitCommit(id: string, message: string): Promise<void>;
   gitStash(id: string): Promise<void>;
   gitDiscard(id: string, path?: string): Promise<void>;

@@ -13,6 +13,8 @@ import { Home } from './components/layout/Home';
 import { StatusBar } from './components/layout/StatusBar';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
+import { AppLoader } from './components/ui/AppLoader';
+import { ModalLoader } from './components/ui/ModalLoader';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 
 // Diferidos (code-splitting): componentes pesados o que no se necesitan en el
@@ -31,6 +33,9 @@ const TerminalModal = lazy(() =>
   import('./components/shared/TerminalModal').then((m) => ({ default: m.TerminalModal })),
 );
 const DiffModal = lazy(() => import('./components/shared/DiffModal').then((m) => ({ default: m.DiffModal })));
+const CommitHistoryModal = lazy(() =>
+  import('./components/shared/CommitHistoryModal').then((m) => ({ default: m.CommitHistoryModal })),
+);
 const ActivityModal = lazy(() =>
   import('./components/shared/ActivityModal').then((m) => ({ default: m.ActivityModal })),
 );
@@ -78,7 +83,7 @@ export default function App() {
   }, []);
 
   if (auth === 'loading') {
-    return <div className="h-full w-full bg-[var(--bg-void)]" />;
+    return <AppLoader label="Verificando sesión…" />;
   }
   if (auth === 'setup' || auth === 'login') {
     return <AuthScreen mode={auth} onAuthenticated={refreshStatus} />;
@@ -89,6 +94,7 @@ export default function App() {
 function MainApp() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
+  const commitHistoryOpen = useStore((s) => s.commitHistoryOpen);
   const activityOpen = useStore((s) => s.activityModalOpen);
   const projectsOpen = useStore((s) => s.projectsModalOpen);
   const terminalOpen = useStore((s) => s.terminalModalOpen);
@@ -154,9 +160,15 @@ function MainApp() {
       <Suspense fallback={null}>
         {projectsOpen && <ProjectsModal />}
         {diffOpen && <DiffModal />}
+        {commitHistoryOpen && focused && <CommitHistoryModal />}
         {activityOpen && focused && <ActivityModal />}
         {terminalOpen && focused && <TerminalModal />}
         {searchOpen && focused && <FileSearchModal />}
+      </Suspense>
+      {/* Visor de archivo en su propio límite: arrastra marked + highlight.js,
+          así que mostramos un loader inmediato mientras baja el chunk (clave en
+          red lenta) sin afectar al resto de modales ya abiertos. */}
+      <Suspense fallback={<ModalLoader />}>
         {selectedFile && <FileViewerModal />}
       </Suspense>
       <Toaster

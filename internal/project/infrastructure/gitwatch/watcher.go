@@ -266,6 +266,131 @@ func (w *Watcher) TakeFile(ctx context.Context, dir, file string) (string, error
 	return string(out), nil
 }
 
+// ── Historial de commits ─────────────────────────────────────────
+
+const defaultLogLimit = 100
+const maxLogLimit = 500
+
+// Log devuelve los últimos commits de la rama actual. Hace DOS pasadas baratas
+// (solo metadata, sin contenido de diff) porque git no combina --numstat con
+// --name-status: la primera trae conteos (+/−) por archivo, la segunda el
+// estado (M/A/D/R). Se fusionan por (hash, ruta). Los registros van separados
+// por \x1e y los campos por \x1f para que el parseo no choque con el contenido.
+func (w *Watcher) Log(ctx context.Context, path string, limit int) ([]domain.Commit, error) {
+	if limit <= 0 || limit > maxLogLimit {
+		limit = defaultLogLimit
+	}
+	n := strconv.Itoa(limit)
+
+	out, err := runGit(ctx, path, "log", "-n", n, "--numstat",
+		"--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s")
+	if err != nil {
+		return nil, err
+	}
+	statusOut, _ := runGit(ctx, path, "log", "-n", n, "--name-status",
+		"--pretty=format:%x1e%H")
+	statusByCommit := parseNameStatus(statusOut)
+
+	var commits []domain.Commit
+	for _, rec := range strings.Split(string(out), "\x1e") {
+		rec = strings.TrimLeft(rec, "\n")
+		if rec == "" {
+			continue
+		}
+		lines := strings.Split(rec, "\n")
+		fields := strings.Split(lines[0], "\x1f")
+		if len(fields) < 5 {
+			continue
+		}
+		c := domain.Commit{Hash: fields[0], ShortHash: fields[1], Author: fields[2], Subject: fields[4]}
+		if t, perr := time.Parse(time.RFC3339, fields[3]); perr == nil {
+			c.Date = t
+		}
+		statuses := statusByCommit[c.Hash]
+		for _, ln := range lines[1:] {
+			ln = strings.TrimRight(ln, "\r")
+			if strings.TrimSpace(ln) == "" {
+				continue
+			}
+			parts := strings.SplitN(ln, "\t", 3)
+			if len(parts) < 3 {
+				continue
+			}
+			add, _ := strconv.Atoi(parts[0]) // "-" (binario) → 0
+			del, _ := strconv.Atoi(parts[1])
+			p := normalizeRenamePath(parts[2])
+			fs := domain.FileStat{Path: p, Status: statuses[p], Additions: add, Deletions: del}
+			if fs.Status == "" {
+				fs.Status = "M"
+			}
+			c.Files = append(c.Files, fs)
+			c.Additions += add
+			c.Deletions += del
+		}
+		commits = append(commits, c)
+	}
+	return commits, nil
+}
+
+// CommitDiff devuelve el diff unificado del commit. --format= suprime la
+// cabecera del commit, dejando solo los "diff --git …" que el parser de la UI
+// espera. runGitDiffOK tolera el exit code 1 (sin cambios, raro en un commit).
+func (w *Watcher) CommitDiff(ctx context.Context, path, hash string) (string, error) {
+	out, err := runGitDiffOK(ctx, path, "show", "--format=", "--no-color", hash)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// parseNameStatus mapea hash → (ruta → letra de estado) a partir de la salida
+// de `git log --name-status`. En renombrados (R100 old new) se queda con el
+// destino, que es lo que también produce normalizeRenamePath sobre numstat.
+func parseNameStatus(out []byte) map[string]map[string]string {
+	result := make(map[string]map[string]string)
+	for _, rec := range strings.Split(string(out), "\x1e") {
+		rec = strings.TrimLeft(rec, "\n")
+		if rec == "" {
+			continue
+		}
+		lines := strings.Split(rec, "\n")
+		cur := make(map[string]string)
+		result[strings.TrimSpace(lines[0])] = cur
+		for _, ln := range lines[1:] {
+			ln = strings.TrimRight(ln, "\r")
+			if ln == "" {
+				continue
+			}
+			parts := strings.Split(ln, "\t")
+			if len(parts) < 2 || parts[0] == "" {
+				continue
+			}
+			cur[parts[len(parts)-1]] = parts[0][:1] // M, A, D, R…
+		}
+	}
+	return result
+}
+
+// normalizeRenamePath resuelve la ruta de destino de un renombrado tal como lo
+// imprime numstat: "old => new" o "dir/{old => new}/file".
+func normalizeRenamePath(p string) string {
+	i := strings.Index(p, " => ")
+	if i < 0 {
+		return p
+	}
+	if l := strings.Index(p, "{"); l >= 0 {
+		if r := strings.Index(p, "}"); r > l {
+			mid := p[l+1 : r] // "old => new"
+			newPart := mid
+			if j := strings.Index(mid, " => "); j >= 0 {
+				newPart = mid[j+4:]
+			}
+			return p[:l] + newPart + p[r+1:]
+		}
+	}
+	return strings.TrimSpace(p[i+4:])
+}
+
 func runGitDiffOK(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	out, err := runGit(ctx, dir, args...)
 	var ge *GitError

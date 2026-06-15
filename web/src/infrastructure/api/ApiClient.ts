@@ -3,6 +3,8 @@
 import type { AuthStatus, IApiRepository } from '../../core/domain/ports/IApiRepository';
 import type {
   ActivityEvent,
+  Commit,
+  CommitDiff,
   FileContent,
   FileDiff,
   FsListing,
@@ -96,6 +98,14 @@ class ApiClient implements IApiRepository {
 
   getDiff(id: string): Promise<GitSnapshot> {
     return this.request(`/api/projects/${id}/diff`);
+  }
+
+  getCommits(id: string, limit?: number): Promise<Commit[]> {
+    return this.request(`/api/projects/${id}/commits${limit ? `?limit=${limit}` : ''}`);
+  }
+
+  getCommitDiff(id: string, hash: string): Promise<CommitDiff> {
+    return this.request(`/api/projects/${id}/commit?hash=${encodeURIComponent(hash)}`);
   }
 
   gitCommit(id: string, message: string): Promise<void> {

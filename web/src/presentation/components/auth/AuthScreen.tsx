@@ -5,7 +5,7 @@
 import { useState } from 'react';
 
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
-import { IconLogo } from '../ui/icons';
+import { AgentLogo } from '../ui/AgentLogo';
 
 interface AuthScreenProps {
   mode: 'setup' | 'login';
@@ -47,7 +47,7 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
     <div className="flex h-full w-full items-center justify-center bg-[var(--bg-void)] p-4">
       <div className="glass-panel flex w-[400px] max-w-[92vw] flex-col overflow-hidden">
         <header className="flex flex-col items-center gap-3 border-b border-[var(--border-secondary)] px-6 py-7">
-          <IconLogo className="h-9 w-9 text-gold" />
+          <AgentLogo size={64} />
           <span className="hud-label text-[11px]">AGENT-P</span>
           <h1 className="hud-value text-base normal-case">
             {isSetup ? 'Crea el primer usuario' : 'Inicia sesión'}

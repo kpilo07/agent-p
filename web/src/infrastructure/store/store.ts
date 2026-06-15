@@ -7,6 +7,7 @@ import { create } from 'zustand';
 
 import type {
   ActivityEvent,
+  Commit,
   GitSnapshot,
   PinnedTerm,
   Project,
@@ -22,6 +23,7 @@ import { storageService } from '../storage/StorageService';
 export type {
   Project,
   GitSnapshot,
+  Commit,
   TermInfo,
   FileStat,
   ActivityEvent,
@@ -46,6 +48,7 @@ interface AppState {
   wsStatus: WsStatus;
   projectsModalOpen: boolean;
   diffModalOpen: boolean;
+  commitHistoryOpen: boolean;
   activityModalOpen: boolean;
   terminals: Record<string, TermInfo[]>;
   focusedTermId: string;
@@ -68,6 +71,7 @@ interface AppState {
   setWsStatus: (status: WsStatus) => void;
   setProjectsModalOpen: (open: boolean) => void;
   setDiffModalOpen: (open: boolean) => void;
+  setCommitHistoryOpen: (open: boolean) => void;
   setActivityModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
@@ -110,6 +114,7 @@ export const useStore = create<AppState>((set, get) => ({
   wsStatus: 'connecting',
   projectsModalOpen: false,
   diffModalOpen: false,
+  commitHistoryOpen: false,
   activityModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
@@ -179,6 +184,8 @@ export const useStore = create<AppState>((set, get) => ({
   setProjectsModalOpen: (projectsModalOpen) => set({ projectsModalOpen }),
 
   setDiffModalOpen: (diffModalOpen) => set({ diffModalOpen }),
+
+  setCommitHistoryOpen: (commitHistoryOpen) => set({ commitHistoryOpen }),
 
   setActivityModalOpen: (activityModalOpen) => set({ activityModalOpen }),
 

@@ -176,6 +176,57 @@ func (s *Server) handleProjectDiff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, snap)
 }
 
+func (s *Server) handleProjectCommits(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	limit := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		limit, _ = strconv.Atoi(v)
+	}
+	commits, err := s.uc.GetCommits(r.Context(), p.Path, limit)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, commits)
+}
+
+func (s *Server) handleProjectCommitDiff(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	hash := r.URL.Query().Get("hash")
+	if !isValidCommitHash(hash) {
+		s.failMsg(w, "hash de commit inválido", http.StatusBadRequest)
+		return
+	}
+	diff, err := s.uc.GetCommitDiff(r.Context(), p.Path, hash)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"hash": hash, "diff": diff})
+}
+
+// isValidCommitHash acepta solo hex (4–64 chars): evita inyectar flags/refs
+// arbitrarios en `git show`.
+func isValidCommitHash(h string) bool {
+	if len(h) < 4 || len(h) > 64 {
+		return false
+	}
+	for _, c := range h {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) handleInterruptProject(w http.ResponseWriter, r *http.Request) {
 	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
 	if err != nil {

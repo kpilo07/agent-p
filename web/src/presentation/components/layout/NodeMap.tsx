@@ -51,11 +51,11 @@ import {
   IconFolderOpen,
   IconPinOff,
   IconSettings,
-  IconLogo,
   IconRefresh,
   IconTerminal,
   IconTrash,
 } from '../ui/icons';
+import { AgentLogo } from '../ui/AgentLogo';
 
 // ── Configuración de fondo del mapa ─────────────────────────────
 
@@ -277,7 +277,7 @@ function RepoNode({ data }: NodeProps<MapNode>) {
       <Handle type="target" position={Position.Left} className="map-handle" />
 
       {data.kind === 'root' ? (
-        <IconLogo className="h-4 w-4 shrink-0 text-gold" />
+        <AgentLogo size={18} className="shrink-0" />
       ) : data.kind === 'dir' ? (
         <>
           {data.expanded ? (

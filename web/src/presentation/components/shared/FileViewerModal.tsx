@@ -121,7 +121,14 @@ export function FileViewerModal() {
 
           <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--bg-primary)]">
             {loading ? (
-              <p className="hud-label px-5 py-4">Cargando archivo…</p>
+              <div className="flex h-full items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="app-loader__bar">
+                    <span />
+                  </div>
+                  <span className="hud-label">Cargando archivo…</span>
+                </div>
+              </div>
             ) : tab === 'preview' ? (
               <MarkdownPreview source={file?.content ?? ''} />
             ) : tab === 'content' ? (

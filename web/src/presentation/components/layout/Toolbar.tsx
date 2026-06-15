@@ -10,6 +10,7 @@ import {
   IconActivity,
   IconFolder,
   IconGitBranch,
+  IconGitCommit,
   IconPlus,
   IconSearch,
   IconStop,
@@ -100,6 +101,15 @@ export function Toolbar() {
             {dirty && (
               <span className="notification-pulse notification-pulse--gold absolute top-0.5 right-0.5 h-2 w-2" />
             )}
+          </button>
+
+          {/* Historial de commits de la rama actual */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setCommitHistoryOpen(true)}
+            title="Historial de commits"
+          >
+            <IconGitCommit className="h-4.5 w-4.5" />
           </button>
 
           {/* Timeline de actividad del proyecto */}

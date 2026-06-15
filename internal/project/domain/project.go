@@ -66,6 +66,20 @@ type GitSnapshot struct {
 	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
+// Commit es una entrada del historial de la rama actual. Files lleva los
+// archivos tocados por el commit con su estado y conteo de líneas (numstat),
+// pero NO el diff textual: ese se pide bajo demanda con CommitDiff.
+type Commit struct {
+	Hash      string     `json:"hash"`      // hash completo (para pedir su diff)
+	ShortHash string     `json:"shortHash"` // hash corto (display)
+	Author    string     `json:"author"`
+	Date      time.Time  `json:"date"`
+	Subject   string     `json:"subject"`
+	Additions int        `json:"additions"`
+	Deletions int        `json:"deletions"`
+	Files     []FileStat `json:"files"`
+}
+
 // TermInfo describe una terminal activa para la UI.
 type TermInfo struct {
 	ID      string `json:"id"`

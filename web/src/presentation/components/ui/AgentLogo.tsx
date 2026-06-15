@@ -1,16 +1,23 @@
 // Logo de AGENT-P: personaje con sombrero en pixel-art, renderizado como SVG
 // inline (exactamente el sprite proporcionado). shape-rendering: crispEdges
 // mantiene los bordes nítidos al escalar.
-const SIZE = 160; // tamaño del logo en CSS px
+const DEFAULT_SIZE = 160; // tamaño por defecto en CSS px
 
-export function AgentLogo() {
+interface AgentLogoProps {
+  /** Lado del sprite en px (cuadrado). Por defecto 160 (pantalla de inicio). */
+  size?: number;
+  className?: string;
+}
+
+export function AgentLogo({ size = DEFAULT_SIZE, className }: AgentLogoProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 16 16"
-      width={SIZE}
-      height={SIZE}
+      width={size}
+      height={size}
       shapeRendering="crispEdges"
+      className={className}
       aria-hidden="true"
     >
       <path d="M6,2 h4 v1 h-4 z" fill="#5C341A" />

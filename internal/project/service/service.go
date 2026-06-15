@@ -233,6 +233,14 @@ func (s *ProjectService) GetFileDiff(ctx context.Context, projectPath, filePath 
 	return s.git.TakeFile(ctx, projectPath, filePath)
 }
 
+func (s *ProjectService) GetCommits(ctx context.Context, projectPath string, limit int) ([]domain.Commit, error) {
+	return s.git.Log(ctx, projectPath, limit)
+}
+
+func (s *ProjectService) GetCommitDiff(ctx context.Context, projectPath, hash string) (string, error) {
+	return s.git.CommitDiff(ctx, projectPath, hash)
+}
+
 // ── Árbol de archivos ────────────────────────────────────────────
 
 func (s *ProjectService) GetFileTree(_ context.Context, projectPath string) (*domain.TreeNode, error) {

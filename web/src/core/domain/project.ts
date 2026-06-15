@@ -103,6 +103,24 @@ export interface FileDiff {
   diff: string;
 }
 
+/** Commit del historial de la rama actual (espejo de domain.Commit en Go). */
+export interface Commit {
+  hash: string;
+  shortHash: string;
+  author: string;
+  date: string;
+  subject: string;
+  additions: number;
+  deletions: number;
+  files: FileStat[] | null;
+}
+
+/** Diff textual completo de un commit, pedido bajo demanda. */
+export interface CommitDiff {
+  hash: string;
+  diff: string;
+}
+
 export interface FileContent {
   path: string;
   content: string;

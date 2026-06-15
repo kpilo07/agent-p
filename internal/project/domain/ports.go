@@ -48,6 +48,11 @@ type GitService interface {
 	UnwatchAll()
 	Take(ctx context.Context, path string) (*GitSnapshot, error)
 	TakeFile(ctx context.Context, dir, file string) (string, error)
+	// Log devuelve los últimos `limit` commits de la rama actual, cada uno con
+	// sus archivos (estado + numstat) pero sin el diff textual.
+	Log(ctx context.Context, path string, limit int) ([]Commit, error)
+	// CommitDiff devuelve el diff unificado completo de un commit (git show).
+	CommitDiff(ctx context.Context, path, hash string) (string, error)
 
 	// Operaciones de gobierno del repo (mutan el repo, no el código fuente
 	// desde la UI: consolidan o revierten el trabajo del agente).
@@ -126,6 +131,8 @@ type ProjectUseCases interface {
 	// Git
 	GetGitSnapshot(ctx context.Context, projectPath string) (*GitSnapshot, error)
 	GetFileDiff(ctx context.Context, projectPath, filePath string) (string, error)
+	GetCommits(ctx context.Context, projectPath string, limit int) ([]Commit, error)
+	GetCommitDiff(ctx context.Context, projectPath, hash string) (string, error)
 
 	// Árbol de archivos
 	GetFileTree(ctx context.Context, projectPath string) (*TreeNode, error)
