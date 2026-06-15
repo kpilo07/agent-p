@@ -6,6 +6,21 @@ y el versionado sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-15
+
+### Añadido
+- **Historial de commits**: nueva vista en el toolbar para explorar los commits
+  de la rama actual, con los archivos modificados por commit y su diff completo
+  bajo demanda (reutiliza el acordeón del review).
+- **Favicon** con el logo de marca (sprite pixel-art).
+- **Loader global de arranque**, **loader de modales diferidos** y **loader al
+  abrir un archivo**: feedback inmediato mientras se descargan los chunks o se
+  recupera el contenido, clave en accesos por red.
+
+### Cambiado
+- **Logo de marca unificado** (pixel-art) en login/registro, pantalla de inicio,
+  nodo raíz del Mapa de nodos y pantalla de arranque.
+
 ## [0.1.0] - 2026-06-14
 
 Primera versión pública. Binario único para Linux (amd64 y arm64) con el
@@ -34,5 +49,6 @@ frontend de React embebido.
 - **Code-splitting (lazy loading)** del frontend: la descarga inicial baja de
   ~1.3 MiB a ~0.4 MiB; las librerías pesadas se cargan bajo demanda.
 
-[Unreleased]: https://github.com/kpilo07/agent-p/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kpilo07/agent-p/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kpilo07/agent-p/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kpilo07/agent-p/releases/tag/v0.1.0
