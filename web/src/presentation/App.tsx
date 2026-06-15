@@ -45,6 +45,9 @@ const FileViewerModal = lazy(() =>
 const FileSearchModal = lazy(() =>
   import('./components/shared/FileSearchModal').then((m) => ({ default: m.FileSearchModal })),
 );
+const ContentSearchModal = lazy(() =>
+  import('./components/shared/ContentSearchModal').then((m) => ({ default: m.ContentSearchModal })),
+);
 
 const TOASTER_OFFSET = { bottom: 40, right: 64 } as const;
 const TOASTER_OPTIONS = { duration: 6000, fill: '#000000' } as const;
@@ -100,6 +103,7 @@ function MainApp() {
   const terminalOpen = useStore((s) => s.terminalModalOpen);
   const selectedFile = useStore((s) => s.selectedFile);
   const searchOpen = useStore((s) => s.searchOpen);
+  const contentSearchOpen = useStore((s) => s.contentSearchOpen);
   const wsOpen = useStore((s) => s.wsStatus === 'open');
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
 
@@ -164,6 +168,7 @@ function MainApp() {
         {activityOpen && focused && <ActivityModal />}
         {terminalOpen && focused && <TerminalModal />}
         {searchOpen && focused && <FileSearchModal />}
+        {contentSearchOpen && focused && <ContentSearchModal />}
       </Suspense>
       {/* Visor de archivo en su propio límite: arrastra marked + highlight.js,
           así que mostramos un loader inmediato mientras baja el chunk (clave en

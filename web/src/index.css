@@ -1137,10 +1137,21 @@ html, body, #root {
   z-index: 10;
 }
 
-/* ── Toasts (sileo): fondo negro sólido ──────────────────────────────
+/* ── Toasts (sileo): fondo negro sólido, texto claro ─────────────────
    El fill del toast se fuerza a #000000 desde <Toaster options={{ fill }} />.
-   Con theme="dark" sileo pinta la descripción en texto oscuro (pensado para
-   un fondo claro), invisible sobre negro: la aclaramos aquí. */
+   Con theme="dark" sileo pinta el texto en oscuro (asume fondo claro) e INYECTA
+   su CSS en runtime (<style> en <head>), que cae en el cascade DESPUÉS de este
+   archivo → su regla oscura ganaría por orden. Por eso usamos !important: es la
+   única forma de imponer el texto claro sobre el negro. El fondo sigue negro. */
+[data-sileo-viewport][data-theme='dark'] [data-sileo-toast] {
+  color: var(--text-primary) !important;
+}
+/* Título y badge: conservan el color de estado (--sileo-tone) si lo hay, pero
+   caen al neutro de la app en vez de a currentColor (negro sobre negro). */
+[data-sileo-viewport][data-theme='dark'] [data-sileo-title],
+[data-sileo-viewport][data-theme='dark'] [data-sileo-badge] {
+  color: var(--sileo-tone, var(--text-primary)) !important;
+}
 [data-sileo-viewport][data-theme='dark'] [data-sileo-description] {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-primary) !important;
 }

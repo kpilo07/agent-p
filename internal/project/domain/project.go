@@ -57,13 +57,16 @@ type FileStat struct {
 
 // GitSnapshot es el estado de git de un proyecto en un instante.
 type GitSnapshot struct {
-	Branch    string     `json:"branch"` // rama actual (vacío si detached/no-repo)
-	Diff      string     `json:"diff"`
-	Files     []FileStat `json:"files"`
-	Additions int        `json:"additions"`
-	Deletions int        `json:"deletions"`
-	Initial   bool       `json:"initial"` // primera lectura: no notificar
-	UpdatedAt time.Time  `json:"updatedAt"`
+	Branch      string     `json:"branch"` // rama actual (vacío si detached/no-repo)
+	Diff        string     `json:"diff"`
+	Files       []FileStat `json:"files"`
+	Additions   int        `json:"additions"`
+	Deletions   int        `json:"deletions"`
+	Ahead       int        `json:"ahead"`       // commits por delante del upstream
+	Behind      int        `json:"behind"`      // commits por detrás del upstream
+	HasUpstream bool       `json:"hasUpstream"` // la rama tiene upstream configurado
+	Initial     bool       `json:"initial"`     // primera lectura: no notificar
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
 // Commit es una entrada del historial de la rama actual. Files lleva los
@@ -80,10 +83,18 @@ type Commit struct {
 	Files     []FileStat `json:"files"`
 }
 
-// GitBranches enumera las ramas locales del repo y marca la actual.
+// GitBranches enumera las ramas del repo y marca la actual.
 type GitBranches struct {
-	Current string   `json:"current"`         // rama actual (vacío si detached)
-	Local   []string `json:"local"`           // ramas locales, orden de git
+	Current string   `json:"current"` // rama actual (vacío si detached)
+	Local   []string `json:"local"`   // ramas locales, orden de git
+	Remote  []string `json:"remote"`  // ramas remotas (p.ej. "origin/main")
+}
+
+// GrepMatch es una coincidencia de búsqueda de contenido (git grep).
+type GrepMatch struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
+	Text string `json:"text"`
 }
 
 // TermInfo describe una terminal activa para la UI.

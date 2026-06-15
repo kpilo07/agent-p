@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import { useStore, type GitBranches } from '../../../infrastructure/store/store';
-import { IconCheck, IconChevronDown, IconGitBranch, IconPlus, IconSearch } from '../ui/icons';
+import { IconArrowDown, IconCheck, IconChevronDown, IconGitBranch, IconPlus, IconSearch } from '../ui/icons';
 
 export function BranchSwitcher({ projectId, current }: { projectId: string; current: string }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +24,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
       .getBranches(projectId)
       .then(setData)
       .catch((err) => {
-        setData({ current, local: [] });
+        setData({ current, local: [], remote: [] });
         useStore.getState().pushToast({ level: 'error', title: 'Branches', message: (err as Error).message });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,10 +56,18 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
     }
   };
 
-  const branches = data?.local ?? [];
+  const localBranches = data?.local ?? [];
+  const remoteBranches = data?.remote ?? [];
   const q = filter.trim();
-  const filtered = q ? branches.filter((b) => b.toLowerCase().includes(q.toLowerCase())) : branches;
-  const canCreate = q !== '' && !branches.includes(q);
+  const ql = q.toLowerCase();
+  const localSet = new Set(localBranches);
+  const shortName = (r: string) => r.slice(r.indexOf('/') + 1); // "origin/foo" → "foo"
+  const filteredLocal = q ? localBranches.filter((b) => b.toLowerCase().includes(ql)) : localBranches;
+  // Remotas cuyo nombre corto no existe ya como rama local (evita duplicar).
+  const filteredRemote = (q ? remoteBranches.filter((b) => b.toLowerCase().includes(ql)) : remoteBranches).filter(
+    (r) => !localSet.has(shortName(r)),
+  );
+  const canCreate = q !== '' && !localBranches.includes(q);
 
   return (
     <div className="relative">
@@ -100,34 +108,50 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
             <div className="styled-scrollbar max-h-64 overflow-y-auto py-1">
               {data === null ? (
                 <p className="hud-label px-3 py-2">Loading branches…</p>
-              ) : filtered.length === 0 && !canCreate ? (
+              ) : filteredLocal.length === 0 && filteredRemote.length === 0 && !canCreate ? (
                 <p className="hud-label px-3 py-2">No matching branches</p>
-              ) : (
-                filtered.map((b) => {
-                  const isCurrent = b === current;
-                  return (
-                    <button
-                      key={b}
-                      disabled={busy}
-                      onClick={() => checkout(b, false)}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--hover-accent)] disabled:opacity-50 ${
-                        isCurrent ? 'bg-[var(--hover-accent)]' : ''
-                      }`}
-                      title={isCurrent ? 'Current branch' : `Switch to ${b}`}
-                    >
-                      {isCurrent ? (
-                        <IconCheck className="h-3.5 w-3.5 shrink-0 text-alert-green" />
-                      ) : (
-                        <IconGitBranch className="h-3.5 w-3.5 shrink-0 text-muted" />
-                      )}
-                      <span className={`hud-value min-w-0 flex-1 truncate ${isCurrent ? '!text-gold' : ''}`}>
-                        {b}
-                      </span>
-                      {isCurrent && <span className="hud-label shrink-0">current</span>}
-                    </button>
-                  );
-                })
+              ) : null}
+
+              {filteredLocal.map((b) => {
+                const isCurrent = b === current;
+                return (
+                  <button
+                    key={b}
+                    disabled={busy}
+                    onClick={() => checkout(b, false)}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--hover-accent)] disabled:opacity-50 ${
+                      isCurrent ? 'bg-[var(--hover-accent)]' : ''
+                    }`}
+                    title={isCurrent ? 'Current branch' : `Switch to ${b}`}
+                  >
+                    {isCurrent ? (
+                      <IconCheck className="h-3.5 w-3.5 shrink-0 text-alert-green" />
+                    ) : (
+                      <IconGitBranch className="h-3.5 w-3.5 shrink-0 text-muted" />
+                    )}
+                    <span className={`hud-value min-w-0 flex-1 truncate ${isCurrent ? '!text-gold' : ''}`}>
+                      {b}
+                    </span>
+                    {isCurrent && <span className="hud-label shrink-0">current</span>}
+                  </button>
+                );
+              })}
+
+              {filteredRemote.length > 0 && (
+                <p className="hud-label border-t border-[var(--border-primary)] px-3 pb-1 pt-1.5">Remote</p>
               )}
+              {filteredRemote.map((r) => (
+                <button
+                  key={r}
+                  disabled={busy}
+                  onClick={() => checkout(shortName(r), false)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--hover-accent)] disabled:opacity-50"
+                  title={`Check out ${shortName(r)} tracking ${r}`}
+                >
+                  <IconArrowDown className="h-3.5 w-3.5 shrink-0 text-muted" />
+                  <span className="hud-value min-w-0 flex-1 truncate">{r}</span>
+                </button>
+              ))}
 
               {canCreate && (
                 <button

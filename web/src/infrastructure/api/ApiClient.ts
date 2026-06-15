@@ -10,6 +10,7 @@ import type {
   FsListing,
   GitBranches,
   GitSnapshot,
+  GrepMatch,
   Project,
   TermInfo,
   TreeNode,
@@ -118,6 +119,22 @@ class ApiClient implements IApiRepository {
       method: 'POST',
       body: JSON.stringify({ branch, create: create ?? false }),
     });
+  }
+
+  grep(id: string, query: string): Promise<GrepMatch[]> {
+    return this.request(`/api/projects/${id}/grep?q=${encodeURIComponent(query)}`);
+  }
+
+  gitFetch(id: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/fetch`, { method: 'POST' });
+  }
+
+  gitPush(id: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/push`, { method: 'POST' });
+  }
+
+  gitPull(id: string): Promise<void> {
+    return this.request(`/api/projects/${id}/git/pull`, { method: 'POST' });
   }
 
   gitCommit(id: string, message: string): Promise<void> {

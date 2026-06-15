@@ -1,9 +1,10 @@
 // Atajos de teclado globales (accesibilidad). Un único listener en window
 // centraliza todos los atajos de la app:
 //
-//   Ctrl/⌘ + K   → buscar archivos del repositorio (requiere proyecto en foco)
-//   Ctrl/⌘ + P   → abrir el panel de proyectos
-//   Ctrl/⌘ + `   → crear y abrir una nueva terminal (requiere proyecto en foco)
+//   Ctrl/⌘ + K       → buscar archivos del repositorio (requiere proyecto en foco)
+//   Ctrl/⌘ + Shift+F → buscar contenido (git grep) en el repositorio
+//   Ctrl/⌘ + P       → abrir el panel de proyectos
+//   Ctrl/⌘ + `       → crear y abrir una nueva terminal (requiere proyecto en foco)
 //
 // No se disparan cuando el foco está en un campo editable o en una terminal
 // (xterm), para no secuestrar teclas que el usuario está escribiendo allí.
@@ -21,12 +22,22 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Solo atajos con Ctrl/⌘; ignoramos Alt y Shift para no pisar otros
-      // (p. ej. Ctrl+Shift+P de las DevTools).
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || e.altKey) return;
       if (isTypingTarget(e.target)) return;
 
       const s = useStore.getState();
+
+      // Búsqueda de contenido: Ctrl/⌘+Shift+F (único atajo con Shift permitido).
+      if (e.shiftKey && (e.code === 'KeyF' || e.key.toLowerCase() === 'f')) {
+        if (!s.focusedId) return;
+        e.preventDefault();
+        s.setContentSearchOpen(true);
+        return;
+      }
+
+      // El resto de atajos ignoran Shift (p. ej. para no pisar Ctrl+Shift+P de DevTools).
+      if (e.shiftKey) return;
 
       // Backquote por código físico (independiente de la distribución del
       // teclado), con respaldo por carácter.

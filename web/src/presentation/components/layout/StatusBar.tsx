@@ -8,6 +8,7 @@ import { projectService } from '../../../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { useGit } from '../../hooks/useGit';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
+import { SyncControl } from '../shared/SyncControl';
 import { IconBell, IconChevronDown, IconLogo, IconLogout } from '../ui/icons';
 
 const WS_STATUS_STYLE = {
@@ -59,6 +60,14 @@ export function StatusBar() {
           </span>
         )}
         {focused && branch && <BranchSwitcher projectId={focused.id} current={branch} />}
+        {focused && branch && git && (
+          <SyncControl
+            projectId={focused.id}
+            ahead={git.ahead}
+            behind={git.behind}
+            hasUpstream={git.hasUpstream}
+          />
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-4">

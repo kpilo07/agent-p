@@ -29,6 +29,9 @@ export interface GitSnapshot {
   files: FileStat[] | null;
   additions: number;
   deletions: number;
+  ahead: number;
+  behind: number;
+  hasUpstream: boolean;
   initial: boolean;
   updatedAt: string;
 }
@@ -121,10 +124,18 @@ export interface CommitDiff {
   diff: string;
 }
 
-/** Ramas locales del repo y la actual (espejo de domain.GitBranches en Go). */
+/** Ramas del repo y la actual (espejo de domain.GitBranches en Go). */
 export interface GitBranches {
   current: string;
   local: string[] | null;
+  remote: string[] | null;
+}
+
+/** Coincidencia de búsqueda de contenido (git grep). */
+export interface GrepMatch {
+  path: string;
+  line: number;
+  text: string;
 }
 
 export interface FileContent {

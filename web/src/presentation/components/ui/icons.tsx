@@ -220,3 +220,26 @@ export const IconGitCommit = (p: IconProps) => (
     <path d="M3 12h5.5M15.5 12H21" />
   </Svg>
 );
+
+// Flecha arriba (push / commits por delante).
+export const IconArrowUp = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 19V5M5 12l7-7 7 7" />
+  </Svg>
+);
+
+// Flecha abajo (pull / commits por detrás).
+export const IconArrowDown = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12l7 7 7-7" />
+  </Svg>
+);
+
+// Buscar en el contenido (lupa sobre líneas de texto).
+export const IconTextSearch = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+    <path d="M8 9h6M8 12.5h4" />
+  </Svg>
+);

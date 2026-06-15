@@ -9,6 +9,7 @@ import type {
   FsListing,
   GitBranches,
   GitSnapshot,
+  GrepMatch,
   Project,
   TermInfo,
   TreeNode,
@@ -41,6 +42,10 @@ export interface IApiRepository {
   getCommitDiff(id: string, hash: string): Promise<CommitDiff>;
   getBranches(id: string): Promise<GitBranches>;
   gitCheckout(id: string, branch: string, create?: boolean): Promise<void>;
+  grep(id: string, query: string): Promise<GrepMatch[]>;
+  gitFetch(id: string): Promise<void>;
+  gitPush(id: string): Promise<void>;
+  gitPull(id: string): Promise<void>;
   gitCommit(id: string, message: string): Promise<void>;
   gitStash(id: string): Promise<void>;
   gitDiscard(id: string, path?: string): Promise<void>;

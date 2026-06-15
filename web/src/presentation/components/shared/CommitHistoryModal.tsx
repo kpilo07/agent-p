@@ -88,6 +88,9 @@ export function CommitHistoryModal() {
       files: selectedCommit.files,
       additions: selectedCommit.additions,
       deletions: selectedCommit.deletions,
+      ahead: 0,
+      behind: 0,
+      hasUpstream: false,
       initial: false,
       updatedAt: selectedCommit.date,
     };

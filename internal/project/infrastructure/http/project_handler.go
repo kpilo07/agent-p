@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -212,6 +213,48 @@ func (s *Server) handleProjectCommitDiff(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"hash": hash, "diff": diff})
+}
+
+func (s *Server) handleProjectGrep(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	query := r.URL.Query().Get("q")
+	if len(query) < 2 {
+		s.failMsg(w, "the query must be at least 2 characters", http.StatusBadRequest)
+		return
+	}
+	if len(query) > 512 {
+		query = query[:512]
+	}
+	matches, err := s.uc.GrepRepo(r.Context(), p.Path, query)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	if matches == nil {
+		matches = []domain.GrepMatch{}
+	}
+	writeJSON(w, http.StatusOK, matches)
+}
+
+// handleGitRemote despacha fetch/push/pull. El fallo típico (push rechazado,
+// pull no fast-forward, sin remoto) devuelve 409 + el mensaje de git.
+func (s *Server) handleGitRemote(op func(ctx context.Context, projectID string) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+		if err != nil {
+			s.failNotFound(w, err)
+			return
+		}
+		if err := op(r.Context(), p.ID); err != nil {
+			s.fail(w, err, http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func (s *Server) handleProjectBranches(w http.ResponseWriter, r *http.Request) {

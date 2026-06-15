@@ -261,6 +261,33 @@ func (s *ProjectService) GitCheckout(ctx context.Context, projectID, branch stri
 	return nil
 }
 
+func (s *ProjectService) GrepRepo(ctx context.Context, projectPath, query string) ([]domain.GrepMatch, error) {
+	return s.git.Grep(ctx, projectPath, query)
+}
+
+// gitRemoteOp resuelve el proyecto y ejecuta una operación de remoto. No
+// registra actividad: el cambio (ahead/behind, working tree) lo capta el
+// siguiente sondeo del watcher y se emite por git_update.
+func (s *ProjectService) gitRemoteOp(ctx context.Context, projectID string, op func(ctx context.Context, path string) error) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	return op(ctx, p.Path)
+}
+
+func (s *ProjectService) GitFetch(ctx context.Context, projectID string) error {
+	return s.gitRemoteOp(ctx, projectID, s.git.Fetch)
+}
+
+func (s *ProjectService) GitPush(ctx context.Context, projectID string) error {
+	return s.gitRemoteOp(ctx, projectID, s.git.Push)
+}
+
+func (s *ProjectService) GitPull(ctx context.Context, projectID string) error {
+	return s.gitRemoteOp(ctx, projectID, s.git.Pull)
+}
+
 // ── Árbol de archivos ────────────────────────────────────────────
 
 func (s *ProjectService) GetFileTree(_ context.Context, projectPath string) (*domain.TreeNode, error) {

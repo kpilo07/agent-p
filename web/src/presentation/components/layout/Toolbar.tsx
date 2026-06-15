@@ -15,6 +15,7 @@ import {
   IconSearch,
   IconStop,
   IconTerminal,
+  IconTextSearch,
 } from '../ui/icons';
 
 const ghostBtn =
@@ -85,6 +86,15 @@ export function Toolbar() {
             title="Search files · Ctrl+K"
           >
             <IconSearch className="h-4.5 w-4.5" />
+          </button>
+
+          {/* Búsqueda de contenido (git grep) en el repositorio */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setContentSearchOpen(true)}
+            title="Search in files · Ctrl+Shift+F"
+          >
+            <IconTextSearch className="h-4.5 w-4.5" />
           </button>
 
           {/* Review de cambios (git diff) */}

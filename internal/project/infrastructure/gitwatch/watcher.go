@@ -134,10 +134,30 @@ func currentBranch(ctx context.Context, path string) string {
 	return branch
 }
 
+// aheadBehind devuelve (ahead, behind, hasUpstream) respecto al upstream de la
+// rama actual. Si no hay upstream configurado, hasUpstream es false y los
+// contadores 0. El "behind" refleja el último fetch (git no consulta la red).
+func aheadBehind(ctx context.Context, path string) (int, int, bool) {
+	out, err := runGit(ctx, path, "rev-list", "--count", "--left-right", "@{u}...HEAD")
+	if err != nil {
+		return 0, 0, false // sin upstream o rama nueva sin tracking
+	}
+	fields := strings.Fields(strings.TrimSpace(string(out)))
+	if len(fields) != 2 {
+		return 0, 0, true
+	}
+	behind, _ := strconv.Atoi(fields[0]) // izquierda: en upstream y no en HEAD
+	ahead, _ := strconv.Atoi(fields[1])  // derecha: en HEAD y no en upstream
+	return ahead, behind, true
+}
+
 func snapHash(s *domain.GitSnapshot) [32]byte {
 	h := sha256.New()
 	h.Write([]byte(s.Branch))
 	h.Write([]byte(s.Diff))
+	// ahead/behind cambian con push/pull/fetch sin tocar el working tree:
+	// inclúyelos para que el cambio dispare un git_update a la UI.
+	h.Write([]byte(strconv.Itoa(s.Ahead) + ":" + strconv.Itoa(s.Behind)))
 	for _, f := range s.Files {
 		h.Write([]byte(f.Status))
 		h.Write([]byte(f.Path))
@@ -204,6 +224,17 @@ func (w *Watcher) Branches(ctx context.Context, path string) (*domain.GitBranche
 			br.Local = append(br.Local, name)
 		}
 	}
+	// Ramas remotas (best-effort): "origin/main", etc. Se omite "origin/HEAD".
+	if rout, rerr := runGit(ctx, path, "branch", "-r", "--format=%(refname:short)"); rerr == nil {
+		for line := range strings.Lines(strings.TrimRight(string(rout), "\n")) {
+			name := strings.TrimSpace(line)
+			// Exigimos "/" para descartar el symref de HEAD (origin/HEAD → "origin").
+			if name != "" && strings.Contains(name, "/") && !strings.Contains(name, "->") &&
+				!strings.HasSuffix(name, "/HEAD") {
+				br.Remote = append(br.Remote, name)
+			}
+		}
+	}
 	return br, nil
 }
 
@@ -215,6 +246,62 @@ func (w *Watcher) Checkout(ctx context.Context, path, branch string, create bool
 	args = append(args, branch)
 	_, err := runGit(ctx, path, args...)
 	return err
+}
+
+// ── Sincronización con el remoto ─────────────────────────────────
+
+func (w *Watcher) Fetch(ctx context.Context, path string) error {
+	_, err := runGit(ctx, path, "fetch", "--prune")
+	return err
+}
+
+// Push empuja la rama actual. Si no hay upstream, lo crea contra origin en el
+// primer push (-u origin HEAD).
+func (w *Watcher) Push(ctx context.Context, path string) error {
+	if _, err := runGit(ctx, path, "rev-parse", "--abbrev-ref", "@{u}"); err != nil {
+		_, perr := runGit(ctx, path, "push", "-u", "origin", "HEAD")
+		return perr
+	}
+	_, err := runGit(ctx, path, "push")
+	return err
+}
+
+// Pull integra el upstream solo si es fast-forward: evita merges sorpresa sobre
+// el trabajo del agente. Si la rama ha divergido, git falla y el mensaje se
+// propaga a la UI para que el usuario decida.
+func (w *Watcher) Pull(ctx context.Context, path string) error {
+	_, err := runGit(ctx, path, "pull", "--ff-only")
+	return err
+}
+
+// Grep busca contenido con git grep (tracked + untracked, ignora .gitignore),
+// insensible a mayúsculas y como texto literal. Tolera exit code 1 (sin
+// coincidencias). Limita el número total de resultados.
+func (w *Watcher) Grep(ctx context.Context, path, query string) ([]domain.GrepMatch, error) {
+	const maxMatches = 300
+	out, err := runGitDiffOK(ctx, path, "grep", "-n", "-I", "-F", "-i", "--untracked",
+		"--no-color", "-e", query)
+	if err != nil {
+		return nil, err
+	}
+	var matches []domain.GrepMatch
+	for line := range strings.Lines(strings.TrimRight(string(out), "\n")) {
+		line = strings.TrimRight(line, "\n")
+		// Formato: path:line:text  (separadores ':' — la ruta no contiene ':')
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		n, convErr := strconv.Atoi(parts[1])
+		if convErr != nil {
+			continue
+		}
+		matches = append(matches, domain.GrepMatch{Path: parts[0], Line: n, Text: parts[2]})
+		if len(matches) >= maxMatches {
+			break
+		}
+	}
+	return matches, nil
 }
 
 func (w *Watcher) Discard(ctx context.Context, path, file string) error {
@@ -247,6 +334,7 @@ func (w *Watcher) Take(ctx context.Context, path string) (*domain.GitSnapshot, e
 
 	snap := &domain.GitSnapshot{Diff: string(diff), UpdatedAt: time.Now().UTC()}
 	snap.Branch = currentBranch(ctx, path)
+	snap.Ahead, snap.Behind, snap.HasUpstream = aheadBehind(ctx, path)
 	stats := parseNumstat(numstat)
 
 	for line := range strings.Lines(strings.TrimRight(string(status), "\n")) {

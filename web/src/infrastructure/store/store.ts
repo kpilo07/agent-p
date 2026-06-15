@@ -62,6 +62,7 @@ interface AppState {
   selectedFile: string | null;
   terminalModalOpen: boolean;
   searchOpen: boolean;
+  contentSearchOpen: boolean;
 
   setProjects: (projects: Project[]) => void;
   upsertProject: (project: Project) => void;
@@ -87,6 +88,7 @@ interface AppState {
   setTerminalModalOpen: (open: boolean) => void;
   openTerminal: (termId: string) => void;
   setSearchOpen: (open: boolean) => void;
+  setContentSearchOpen: (open: boolean) => void;
   pushToast: (toast: Toast) => void;
   handleServerEvent: (evt: ServerEvent) => void;
 }
@@ -128,6 +130,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedFile: null,
   terminalModalOpen: false,
   searchOpen: false,
+  contentSearchOpen: false,
 
   setProjects: (projects) =>
     set((s) => ({
@@ -264,6 +267,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setSearchOpen: (searchOpen) => set({ searchOpen }),
+
+  setContentSearchOpen: (contentSearchOpen) => set({ contentSearchOpen }),
 
   pushToast: ({ level, title, message, projectId }) => {
     const fn = SILEO_BY_LEVEL[level];
