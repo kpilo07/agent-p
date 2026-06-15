@@ -23,13 +23,13 @@ export function Home() {
       <div className="styled-scrollbar absolute inset-0 flex flex-col items-center justify-center gap-6 overflow-y-auto p-6">
         <div className="flex flex-col items-center gap-1">
           <AgentLogo />
-          <span className="hud-text text-[18px] font-bold text-gold">P agente</span>
+          <span className="hud-text text-[18px] font-bold text-gold">P agent</span>
           <span className="hud-label">Git Ops Command Center</span>
         </div>
 
         {recent.length > 0 ? (
           <div className="flex w-full max-w-[560px] flex-col gap-2">
-            <span className="hud-label px-1">Recientes</span>
+            <span className="hud-label px-1">Recent</span>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {recent.map((p) => {
                 const active = activeIds.includes(p.id);
@@ -62,7 +62,7 @@ export function Home() {
             onClick={() => useStore.getState().setProjectsModalOpen(true)}
           >
             <IconFolder className="h-4 w-4" />
-            {hasProjects ? 'Abrir un proyecto' : 'Registrar tu primer proyecto'}
+            {hasProjects ? 'Open a project' : 'Register your first project'}
           </button>
         )}
       </div>

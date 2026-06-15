@@ -17,7 +17,7 @@ export function ModalLoader() {
         <div className="app-loader__bar">
           <span />
         </div>
-        <span className="hud-label">Cargando…</span>
+        <span className="hud-label">Loading…</span>
       </div>
     </div>
   );

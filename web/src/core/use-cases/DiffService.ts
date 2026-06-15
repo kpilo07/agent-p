@@ -72,11 +72,11 @@ class DiffService {
 
   /** Mapea el código de estado de git a clase CSS y etiqueta legible. */
   statusTag(status: string): { cls: string; label: string } {
-    if (status.includes('?')) return { cls: 'gotham-tag--info', label: 'nuevo' };
-    if (status.includes('D')) return { cls: 'gotham-tag--critical', label: 'borrado' };
-    if (status.includes('A')) return { cls: 'gotham-tag--low', label: 'añadido' };
-    if (status.includes('R')) return { cls: 'gotham-tag--medium', label: 'renombrado' };
-    return { cls: 'gotham-tag--medium', label: 'modificado' };
+    if (status.includes('?')) return { cls: 'gotham-tag--info', label: 'new' };
+    if (status.includes('D')) return { cls: 'gotham-tag--critical', label: 'deleted' };
+    if (status.includes('A')) return { cls: 'gotham-tag--low', label: 'added' };
+    if (status.includes('R')) return { cls: 'gotham-tag--medium', label: 'renamed' };
+    return { cls: 'gotham-tag--medium', label: 'modified' };
   }
 }
 

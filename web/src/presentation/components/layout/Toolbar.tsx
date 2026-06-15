@@ -44,13 +44,13 @@ export function Toolbar() {
       await api.interruptAgent(focusedId);
       useStore.getState().pushToast({
         level: 'info',
-        title: 'Agente',
-        message: 'Ctrl-C enviado al agente',
+        title: 'Agent',
+        message: 'Ctrl-C sent to the agent',
       });
     } catch (err) {
       useStore.getState().pushToast({
         level: 'error',
-        title: 'Interrumpir',
+        title: 'Interrupt',
         message: (err as Error).message,
       });
     }
@@ -66,7 +66,7 @@ export function Toolbar() {
       <button
         className={ghostBtn}
         onClick={() => useStore.getState().setProjectsModalOpen(true)}
-        title="Panel de proyectos · Ctrl+P"
+        title="Projects panel · Ctrl+P"
       >
         <IconFolder className="h-4.5 w-4.5" />
         {totalUnread > 0 && (
@@ -82,7 +82,7 @@ export function Toolbar() {
           <button
             className={ghostBtn}
             onClick={() => useStore.getState().setSearchOpen(true)}
-            title="Buscar archivos · Ctrl+K"
+            title="Search files · Ctrl+K"
           >
             <IconSearch className="h-4.5 w-4.5" />
           </button>
@@ -93,8 +93,8 @@ export function Toolbar() {
             onClick={() => useStore.getState().setDiffModalOpen(true)}
             title={
               dirty && snap
-                ? `Review · ${snap.files?.length ?? 0} archivos, +${snap.additions} −${snap.deletions}`
-                : 'Review de cambios'
+                ? `Review · ${snap.files?.length ?? 0} files, +${snap.additions} −${snap.deletions}`
+                : 'Review changes'
             }
           >
             <IconGitBranch className="h-4.5 w-4.5" />
@@ -107,7 +107,7 @@ export function Toolbar() {
           <button
             className={ghostBtn}
             onClick={() => useStore.getState().setCommitHistoryOpen(true)}
-            title="Historial de commits"
+            title="Commit history"
           >
             <IconGitCommit className="h-4.5 w-4.5" />
           </button>
@@ -116,7 +116,7 @@ export function Toolbar() {
           <button
             className={ghostBtn}
             onClick={() => useStore.getState().setActivityModalOpen(true)}
-            title="Actividad del proyecto"
+            title="Project activity"
           >
             <IconActivity className="h-4.5 w-4.5" />
           </button>
@@ -126,7 +126,7 @@ export function Toolbar() {
             <button
               className={`${ghostBtn} hover:!text-alert-red`}
               onClick={interruptAgent}
-              title="Interrumpir agente · Ctrl-C"
+              title="Interrupt agent · Ctrl-C"
             >
               <IconStop className="h-4.5 w-4.5" />
             </button>
@@ -136,7 +136,7 @@ export function Toolbar() {
           <button
             className={ghostBtn}
             onClick={() => void createAndOpenTerminal()}
-            title="Nueva terminal · Ctrl+`"
+            title="New terminal · Ctrl+`"
           >
             <IconPlus className="h-4.5 w-4.5" />
           </button>
@@ -156,9 +156,9 @@ export function Toolbar() {
                     onClick={() => openTerm(t.id)}
                     title={
                       pinnedHere
-                        ? `${t.id === AGENT_TERM_ID ? 'Agente' : t.title} · anclada al tablero (clic para localizar)`
+                        ? `${t.id === AGENT_TERM_ID ? 'Agent' : t.title} · pinned to board (click to locate)`
                         : t.id === AGENT_TERM_ID
-                          ? `Agente · ${t.title}`
+                          ? `Agent · ${t.title}`
                           : t.title
                     }
                   >

@@ -83,7 +83,7 @@ export default function App() {
   }, []);
 
   if (auth === 'loading') {
-    return <AppLoader label="Verificando sesión…" />;
+    return <AppLoader label="Verifying session…" />;
   }
   if (auth === 'setup' || auth === 'login') {
     return <AuthScreen mode={auth} onAuthenticated={refreshStatus} />;
@@ -112,7 +112,7 @@ function MainApp() {
         useStore.getState().pushToast({
           level: 'error',
           title: 'agent-p',
-          message: `No se pudieron cargar los proyectos: ${(err as Error).message}`,
+          message: `Could not load projects: ${(err as Error).message}`,
         }),
       );
   }, []);
@@ -142,7 +142,7 @@ function MainApp() {
       <main className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1.5 p-1.5">
         <div className="min-w-0 flex-1">
           {focused ? (
-            <ErrorBoundary key={focused.id} resetKey={focused.id} label="El mapa de nodos no se pudo renderizar">
+            <ErrorBoundary key={focused.id} resetKey={focused.id} label="The node map could not be rendered">
               <Suspense fallback={<div className="glass-panel glass-panel--terminal h-full" />}>
                 <NodeMap />
               </Suspense>

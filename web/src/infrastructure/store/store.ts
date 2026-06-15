@@ -268,7 +268,7 @@ export const useStore = create<AppState>((set, get) => ({
   pushToast: ({ level, title, message, projectId }) => {
     const fn = SILEO_BY_LEVEL[level];
     const button = projectId
-      ? { title: 'Ver', onClick: () => get().focusProject(projectId) }
+      ? { title: 'View', onClick: () => get().focusProject(projectId) }
       : undefined;
     fn({ title, description: message, button });
   },
@@ -338,7 +338,7 @@ export const useStore = create<AppState>((set, get) => ({
           projectId,
           level: p.level ?? 'info',
           title: p.project ?? project?.name ?? 'agent-p',
-          message: p.message ?? 'Evento en proyecto en segundo plano',
+          message: p.message ?? 'Event in background project',
         });
         break;
       }

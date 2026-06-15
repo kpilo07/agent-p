@@ -62,7 +62,7 @@ export function FileSearchModal() {
       .catch((err) =>
         useStore.getState().pushToast({
           level: 'error',
-          title: 'Buscador',
+          title: 'Search',
           message: (err as Error).message,
         }),
       );
@@ -141,19 +141,19 @@ export function FileSearchModal() {
               <input
                 ref={inputRef}
                 className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-                placeholder={`Buscar archivos en ${focused.name}…`}
+                placeholder={`Search files in ${focused.name}…`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onKeyDown}
               />
-              <span className="hud-label shrink-0">{results.length} resultado(s)</span>
+              <span className="hud-label shrink-0">{results.length} result(s)</span>
             </div>
 
             {/* Resultados */}
             <div ref={listRef} className="styled-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
               {results.length === 0 ? (
                 <p className="hud-label px-4 py-3">
-                  {files.length === 0 ? 'Escaneando repositorio…' : 'Sin coincidencias'}
+                  {files.length === 0 ? 'Scanning repository…' : 'No matches'}
                 </p>
               ) : (
                 results.map((f, i) => {
@@ -190,7 +190,7 @@ export function FileSearchModal() {
             </div>
 
             <footer className="shrink-0 border-t border-[var(--border-primary)] px-4 py-1.5">
-              <span className="hud-label">↑↓ navegar · Enter abrir · Esc cerrar</span>
+              <span className="hud-label">↑↓ navigate · Enter open · Esc close</span>
             </footer>
           </div>
         </div>

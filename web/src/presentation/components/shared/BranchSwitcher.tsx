@@ -25,7 +25,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
       .then(setData)
       .catch((err) => {
         setData({ current, local: [] });
-        useStore.getState().pushToast({ level: 'error', title: 'Ramas', message: (err as Error).message });
+        useStore.getState().pushToast({ level: 'error', title: 'Branches', message: (err as Error).message });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, projectId]);
@@ -41,14 +41,14 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
         .catch(() => {});
       useStore.getState().pushToast({
         level: 'info',
-        title: 'Rama',
-        message: create ? `Rama creada y activa: ${branch}` : `Ahora en ${branch}`,
+        title: 'Branch',
+        message: create ? `Branch created and checked out: ${branch}` : `Now on ${branch}`,
       });
       setOpen(false);
     } catch (err) {
       useStore.getState().pushToast({
         level: 'error',
-        title: 'Cambiar de rama',
+        title: 'Switch branch',
         message: (err as Error).message,
       });
     } finally {
@@ -68,7 +68,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
           open ? '!text-[var(--text-primary)]' : ''
         }`}
         onClick={() => setOpen((o) => !o)}
-        title={`Rama actual: ${current} · clic para cambiar`}
+        title={`Current branch: ${current} · click to switch`}
       >
         <IconGitBranch className="h-3.5 w-3.5 shrink-0 text-gold" />
         <span className="hud-value truncate">{current}</span>
@@ -86,7 +86,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
               <IconSearch className="h-3.5 w-3.5 shrink-0 text-muted" />
               <input
                 className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-[var(--text-primary)] placeholder:text-muted focus:outline-none"
-                placeholder="Filtrar o crear rama…"
+                placeholder="Filter or create branch…"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 autoFocus
@@ -99,9 +99,9 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
 
             <div className="styled-scrollbar max-h-64 overflow-y-auto py-1">
               {data === null ? (
-                <p className="hud-label px-3 py-2">Cargando ramas…</p>
+                <p className="hud-label px-3 py-2">Loading branches…</p>
               ) : filtered.length === 0 && !canCreate ? (
-                <p className="hud-label px-3 py-2">Sin ramas que coincidan</p>
+                <p className="hud-label px-3 py-2">No matching branches</p>
               ) : (
                 filtered.map((b) => {
                   const isCurrent = b === current;
@@ -113,7 +113,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
                       className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--hover-accent)] disabled:opacity-50 ${
                         isCurrent ? 'bg-[var(--hover-accent)]' : ''
                       }`}
-                      title={isCurrent ? 'Rama actual' : `Cambiar a ${b}`}
+                      title={isCurrent ? 'Current branch' : `Switch to ${b}`}
                     >
                       {isCurrent ? (
                         <IconCheck className="h-3.5 w-3.5 shrink-0 text-alert-green" />
@@ -123,7 +123,7 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
                       <span className={`hud-value min-w-0 flex-1 truncate ${isCurrent ? '!text-gold' : ''}`}>
                         {b}
                       </span>
-                      {isCurrent && <span className="hud-label shrink-0">actual</span>}
+                      {isCurrent && <span className="hud-label shrink-0">current</span>}
                     </button>
                   );
                 })
@@ -134,10 +134,10 @@ export function BranchSwitcher({ projectId, current }: { projectId: string; curr
                   disabled={busy}
                   onClick={() => checkout(q, true)}
                   className="flex w-full items-center gap-2 border-t border-[var(--border-primary)] px-3 py-1.5 text-left text-alert-green transition-colors hover:bg-[var(--hover-accent)] disabled:opacity-50"
-                  title={`Crear y cambiar a ${q}`}
+                  title={`Create and switch to ${q}`}
                 >
                   <IconPlus className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hud-label min-w-0 flex-1 truncate">Crear rama «{q}»</span>
+                  <span className="hud-label min-w-0 flex-1 truncate">Create branch «{q}»</span>
                 </button>
               )}
             </div>

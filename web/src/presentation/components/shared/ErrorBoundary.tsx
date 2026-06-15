@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <section className="glass-panel glass-panel--terminal relative flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
           <span className="hud-label text-alert-red">
-            {this.props.label ?? 'No se pudo renderizar'}
+            {this.props.label ?? 'Could not render'}
           </span>
           <p className="max-w-[520px] font-mono text-[11px] break-words text-secondary">
             {this.state.error.message || String(this.state.error)}
@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
             className="btn-tactical btn-tactical--cyan px-3 py-1.5"
             onClick={() => this.setState({ error: null })}
           >
-            Reintentar
+            Retry
           </button>
         </section>
       );

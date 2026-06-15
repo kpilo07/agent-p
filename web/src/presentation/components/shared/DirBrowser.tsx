@@ -29,7 +29,7 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
       }
       useStore.getState().pushToast({
         level: 'error',
-        title: 'Explorador',
+        title: 'Browser',
         message: (err as Error).message,
       });
     } finally {
@@ -46,7 +46,7 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
       {(requestClose) => (
         <div className="glass-panel flex max-h-[70vh] w-[520px] max-w-[92vw] flex-col overflow-hidden">
           <header className="flex items-center justify-between gap-3 border-b border-[var(--border-secondary)] px-4 py-3">
-            <span className="hud-label shrink-0">Explorar carpetas</span>
+            <span className="hud-label shrink-0">Browse folders</span>
             <span className="hud-value min-w-0 flex-1 truncate text-right" title={listing?.path}>
               {listing?.path ?? '…'}
             </span>
@@ -68,10 +68,10 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
               </button>
             )}
 
-            {loading && <p className="hud-label px-3 py-4">Cargando…</p>}
+            {loading && <p className="hud-label px-3 py-4">Loading…</p>}
 
             {!loading && listing?.entries.length === 0 && (
-              <p className="hud-label px-3 py-4">Sin subcarpetas visibles</p>
+              <p className="hud-label px-3 py-4">No visible subfolders</p>
             )}
 
             {!loading &&
@@ -83,7 +83,7 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
                   <button
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                     onClick={() => load(entry.path)}
-                    title={`Entrar en ${entry.name}`}
+                    title={`Open ${entry.name}`}
                   >
                     <IconFolder
                       className={`h-4 w-4 ${entry.isGitRepo ? 'text-gold' : 'text-muted'}`}
@@ -102,7 +102,7 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
                       className="btn-tactical btn-tactical--cyan shrink-0 px-2 py-1 opacity-0 transition-opacity group-hover:opacity-100"
                       onClick={() => onSelect(entry.path)}
                     >
-                      Seleccionar
+                      Select
                     </button>
                   )}
                 </div>
@@ -114,10 +114,10 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
               {listing?.isGitRepo ? (
                 <span className="flex items-center gap-2">
                   <span className="notification-pulse notification-pulse--green" />
-                  Repositorio git válido
+                  Valid git repository
                 </span>
               ) : (
-                'Solo se pueden registrar repositorios git'
+                'Only git repositories can be registered'
               )}
             </span>
             <button
@@ -125,7 +125,7 @@ export function DirBrowser({ initialPath, onSelect, onClose }: Props) {
               disabled={!listing?.isGitRepo}
               onClick={() => listing && onSelect(listing.path)}
             >
-              Usar esta carpeta
+              Use this folder
             </button>
           </footer>
         </div>

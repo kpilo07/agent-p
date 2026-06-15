@@ -26,7 +26,7 @@ export function ProjectsModal() {
           <div className="glass-panel flex max-h-[78vh] min-h-[440px] w-[880px] max-w-[94vw] min-w-[560px] flex-col overflow-hidden">
             <header className="flex items-center justify-between border-b border-[var(--border-secondary)] px-5 py-3">
               <div className="flex items-center gap-3">
-                <span className="hud-label">Proyectos</span>
+                <span className="hud-label">Projects</span>
                 <span className="hud-value">{projects.length}</span>
               </div>
               <button
@@ -41,7 +41,7 @@ export function ProjectsModal() {
               {/* Botón de alta: siempre la primera carpeta del grid */}
               <button className="folder-card folder-card--add" onClick={() => setAdding(true)}>
                 <IconPlus className="h-6 w-6" />
-                <span className="hud-label mt-1">Nuevo proyecto</span>
+                <span className="hud-label mt-1">New project</span>
               </button>
 
               {projects.map((p) => {
@@ -71,7 +71,7 @@ export function ProjectsModal() {
                             ? 'notification-pulse notification-pulse--green'
                             : 'inline-block h-[9px] w-[9px] rounded-full bg-[var(--bg-tertiary)]'
                         }
-                        title={isActive ? 'Sesión activa' : 'Inactivo'}
+                        title={isActive ? 'Active session' : 'Inactive'}
                       />
                     </span>
 

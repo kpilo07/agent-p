@@ -58,7 +58,7 @@ export function FileViewerModal() {
       .catch((err) =>
         useStore.getState().pushToast({
           level: 'error',
-          title: 'Visor de archivo',
+          title: 'File viewer',
           message: (err as Error).message,
         }),
       )
@@ -96,17 +96,17 @@ export function FileViewerModal() {
             <div className="flex min-w-0 items-center gap-3">
               <IconFile className="h-4 w-4 shrink-0 text-gold" />
               <span className="hud-value truncate">{path}</span>
-              {dirty && <span className="gotham-tag gotham-tag--medium shrink-0">modificado</span>}
+              {dirty && <span className="gotham-tag gotham-tag--medium shrink-0">modified</span>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {isMarkdown && tabBtn('preview', 'Vista previa')}
-              {tabBtn('content', isImage ? 'Imagen' : 'Contenido')}
-              {tabBtn('diff', 'Cambios')}
+              {isMarkdown && tabBtn('preview', 'Preview')}
+              {tabBtn('content', isImage ? 'Image' : 'Content')}
+              {tabBtn('diff', 'Changes')}
               <span className="mx-1 h-4 w-px bg-[var(--border-secondary)]" />
               <button
                 className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
                 onClick={load}
-                title="Refrescar"
+                title="Refresh"
               >
                 <IconRefresh />
               </button>
@@ -126,7 +126,7 @@ export function FileViewerModal() {
                   <div className="app-loader__bar">
                     <span />
                   </div>
-                  <span className="hud-label">Cargando archivo…</span>
+                  <span className="hud-label">Loading file…</span>
                 </div>
               </div>
             ) : tab === 'preview' ? (
@@ -143,7 +143,7 @@ export function FileViewerModal() {
               <div className="flex h-full items-center justify-center">
                 <p className="hud-label flex items-center gap-2">
                   <span className="notification-pulse notification-pulse--green" />
-                  Sin cambios respecto a HEAD
+                  No changes from HEAD
                 </p>
               </div>
             )}
@@ -153,9 +153,9 @@ export function FileViewerModal() {
             <footer className="border-t border-[var(--border-secondary)] px-5 py-1.5">
               <span className="hud-label">
                 {isImage
-                  ? 'Imagen'
-                  : `${lines.length} líneas · ${((file?.size ?? 0) / 1024).toFixed(1)} KiB${
-                      file?.truncated ? ' · truncado a 1 MiB' : ''
+                  ? 'Image'
+                  : `${lines.length} lines · ${((file?.size ?? 0) / 1024).toFixed(1)} KiB${
+                      file?.truncated ? ' · truncated to 1 MiB' : ''
                     }`}
               </span>
             </footer>
@@ -185,7 +185,7 @@ function FileBody({
     return (
       <div className="flex h-full items-center justify-center">
         <p className="hud-label">
-          {file?.binary ? 'Archivo binario: sin vista previa' : 'No se pudo leer el archivo'}
+          {file?.binary ? 'Binary file: no preview' : 'Could not read the file'}
         </p>
       </div>
     );
@@ -214,7 +214,7 @@ function ImageBody({ src, path }: { src: string; path: string }) {
   if (error) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="hud-label">No se pudo cargar la imagen</p>
+        <p className="hud-label">Could not load the image</p>
       </div>
     );
   }
@@ -237,7 +237,7 @@ function MarkdownPreview({ source }: { source: string }) {
   if (!source.trim()) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="hud-label">Documento vacío</p>
+        <p className="hud-label">Empty document</p>
       </div>
     );
   }

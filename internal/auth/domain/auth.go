@@ -30,17 +30,17 @@ type Session struct {
 var (
 	// ErrInvalidCredentials: usuario inexistente o contraseña incorrecta. Se
 	// devuelve el mismo error en ambos casos para no filtrar qué usuarios existen.
-	ErrInvalidCredentials = errors.New("auth: credenciales inválidas")
+	ErrInvalidCredentials = errors.New("auth: invalid credentials")
 	// ErrSetupDone: se intentó crear el primer usuario cuando ya existe alguno.
-	ErrSetupDone = errors.New("auth: la aplicación ya tiene usuarios")
+	ErrSetupDone = errors.New("auth: the app already has users")
 	// ErrWeakInput: usuario o contraseña no cumplen los requisitos mínimos.
-	ErrWeakInput = errors.New("auth: usuario o contraseña inválidos")
+	ErrWeakInput = errors.New("auth: invalid username or password")
 	// ErrUserExists: ya existe un usuario con ese nombre.
-	ErrUserExists = errors.New("auth: el usuario ya existe")
+	ErrUserExists = errors.New("auth: the user already exists")
 	// ErrUnauthorized: token de sesión ausente, inválido o caducado.
-	ErrUnauthorized = errors.New("auth: no autorizado")
+	ErrUnauthorized = errors.New("auth: unauthorized")
 	// ErrNotFound: el recurso solicitado no existe en el repositorio.
-	ErrNotFound = errors.New("auth: no encontrado")
+	ErrNotFound = errors.New("auth: not found")
 )
 
 // ── PUERTOS DE SALIDA (driven) ────────────────────────────────────────────

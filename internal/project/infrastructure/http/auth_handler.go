@@ -119,7 +119,7 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter) {
 func decodeCredentials(s *Server, w http.ResponseWriter, r *http.Request) (credentialsReq, bool) {
 	var req credentialsReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.failMsg(w, "cuerpo inválido", http.StatusBadRequest)
+		s.failMsg(w, "invalid request body", http.StatusBadRequest)
 		return credentialsReq{}, false
 	}
 	return req, true
@@ -129,13 +129,13 @@ func decodeCredentials(s *Server, w http.ResponseWriter, r *http.Request) (crede
 func (s *Server) failAuth(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, authdomain.ErrInvalidCredentials):
-		s.failMsg(w, "usuario o contraseña incorrectos", http.StatusUnauthorized)
+		s.failMsg(w, "incorrect username or password", http.StatusUnauthorized)
 	case errors.Is(err, authdomain.ErrWeakInput):
-		s.failMsg(w, "el usuario debe tener al menos 3 caracteres y la contraseña 8", http.StatusBadRequest)
+		s.failMsg(w, "username must be at least 3 characters and password at least 8", http.StatusBadRequest)
 	case errors.Is(err, authdomain.ErrSetupDone):
-		s.failMsg(w, "la aplicación ya tiene usuarios; inicia sesión", http.StatusConflict)
+		s.failMsg(w, "the app already has users; sign in", http.StatusConflict)
 	case errors.Is(err, authdomain.ErrUserExists):
-		s.failMsg(w, "ese usuario ya existe", http.StatusConflict)
+		s.failMsg(w, "that username already exists", http.StatusConflict)
 	default:
 		s.fail(w, err, http.StatusInternalServerError)
 	}

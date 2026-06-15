@@ -8,7 +8,7 @@ interface AppLoaderProps {
   label?: string;
 }
 
-export function AppLoader({ label = 'Iniciando sistema…' }: AppLoaderProps) {
+export function AppLoader({ label = 'Starting system…' }: AppLoaderProps) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-[var(--bg-void)]">
       <div className="animate-osiris-pulse">

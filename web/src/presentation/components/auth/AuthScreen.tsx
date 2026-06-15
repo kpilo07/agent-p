@@ -25,7 +25,7 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
     e.preventDefault();
     setError('');
     if (isSetup && password !== confirm) {
-      setError('Las contraseñas no coinciden');
+      setError('Passwords do not match');
       return;
     }
     setBusy(true);
@@ -50,17 +50,17 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
           <AgentLogo size={64} />
           <span className="hud-label text-[11px]">AGENT-P</span>
           <h1 className="hud-value text-base normal-case">
-            {isSetup ? 'Crea el primer usuario' : 'Inicia sesión'}
+            {isSetup ? 'Create the first user' : 'Sign in'}
           </h1>
           {isSetup && (
             <p className="text-center text-[11px] leading-relaxed text-muted">
-              Aún no hay usuarios. Este será el administrador de la aplicación.
+              There are no users yet. This one will be the application administrator.
             </p>
           )}
         </header>
 
         <form onSubmit={submit} className="flex flex-col gap-2.5 p-6">
-          <label className="hud-label">Usuario</label>
+          <label className="hud-label">Username</label>
           <input
             className="hud-input"
             value={username}
@@ -70,7 +70,7 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
             required
           />
 
-          <label className="hud-label mt-1">Contraseña</label>
+          <label className="hud-label mt-1">Password</label>
           <input
             className="hud-input"
             type="password"
@@ -82,7 +82,7 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
 
           {isSetup && (
             <>
-              <label className="hud-label mt-1">Repite la contraseña</label>
+              <label className="hud-label mt-1">Confirm password</label>
               <input
                 className="hud-input"
                 type="password"
@@ -91,7 +91,7 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
                 autoComplete="new-password"
                 required
               />
-              <p className="text-[10px] text-muted">Mínimo 8 caracteres.</p>
+              <p className="text-[10px] text-muted">Minimum 8 characters.</p>
             </>
           )}
 
@@ -108,11 +108,11 @@ export function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
           >
             {busy
               ? isSetup
-                ? 'Creando…'
-                : 'Entrando…'
+                ? 'Creating…'
+                : 'Signing in…'
               : isSetup
-                ? 'Crear usuario'
-                : 'Entrar'}
+                ? 'Create user'
+                : 'Sign in'}
           </button>
         </form>
       </div>

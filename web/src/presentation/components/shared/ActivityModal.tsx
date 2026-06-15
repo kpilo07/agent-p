@@ -24,27 +24,27 @@ interface KindStyle {
 }
 
 const KIND: Record<ActivityKind, KindStyle> = {
-  session_start: { icon: IconTerminal, color: 'text-alert-green', label: 'Sesión' },
-  session_end: { icon: IconTerminal, color: 'text-muted', label: 'Sesión' },
-  git_change: { icon: IconGitBranch, color: 'text-secondary', label: 'Cambios' },
-  branch_switch: { icon: IconGitBranch, color: 'text-gold', label: 'Rama' },
+  session_start: { icon: IconTerminal, color: 'text-alert-green', label: 'Agent started' },
+  session_end: { icon: IconTerminal, color: 'text-muted', label: 'Agent stopped' },
+  git_change: { icon: IconGitBranch, color: 'text-secondary', label: 'Working tree changed' },
+  branch_switch: { icon: IconGitBranch, color: 'text-gold', label: 'Branch switch' },
   commit: { icon: IconGitCommit, color: 'text-alert-green', label: 'Commit' },
   stash: { icon: IconArchive, color: 'text-cyan', label: 'Stash' },
-  discard: { icon: IconTrash, color: 'text-alert-red', label: 'Descartar' },
+  discard: { icon: IconTrash, color: 'text-alert-red', label: 'Discard' },
   interrupt: { icon: IconStop, color: 'text-gold', label: 'Interrupt' },
 };
 
-const FALLBACK: KindStyle = { icon: IconGitBranch, color: 'text-secondary', label: 'Evento' };
+const FALLBACK: KindStyle = { icon: IconGitBranch, color: 'text-secondary', label: 'Event' };
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   const diff = Math.max(0, Date.now() - then);
   const s = Math.floor(diff / 1000);
-  if (s < 60) return 'hace un momento';
+  if (s < 60) return 'a moment ago';
   const m = Math.floor(s / 60);
-  if (m < 60) return `hace ${m} min`;
+  if (m < 60) return `${m} min ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h} h`;
+  if (h < 24) return `${h} h ago`;
   return new Date(iso).toLocaleDateString();
 }
 
@@ -69,7 +69,7 @@ function Row({ ev }: { ev: ActivityEvent }) {
             {ev.branch && <span className="text-gold">{ev.branch}</span>}
             {hasStats && (
               <span className="flex gap-2">
-                <span className="text-secondary">{ev.files ?? 0} arch.</span>
+                <span className="text-secondary">{ev.files ?? 0} files</span>
                 <span className="text-alert-green">+{ev.additions ?? 0}</span>
                 <span className="text-alert-red">−{ev.deletions ?? 0}</span>
               </span>
@@ -93,7 +93,7 @@ export function ActivityModal() {
         <div className="glass-panel flex h-[82vh] w-[560px] max-w-[95vw] flex-col overflow-hidden">
           <header className="flex items-center justify-between gap-4 border-b border-[var(--border-secondary)] px-5 py-3">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="hud-label shrink-0">Actividad</span>
+              <span className="hud-label shrink-0">Activity</span>
               <span className="hud-value truncate">{focused.name}</span>
             </div>
             <button
@@ -107,7 +107,7 @@ export function ActivityModal() {
           <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto">
             {events.length === 0 ? (
               <p className="px-5 py-8 text-center text-[13px] text-muted">
-                Sin actividad registrada todavía.
+                No activity recorded yet.
               </p>
             ) : (
               <ul className="divide-y divide-[var(--border-secondary)]">
@@ -119,7 +119,7 @@ export function ActivityModal() {
           </div>
 
           <footer className="border-t border-[var(--border-secondary)] px-5 py-1.5">
-            <span className="hud-label">{events.length} eventos · en vivo vía WebSocket</span>
+            <span className="hud-label">{events.length} events · live via WebSocket</span>
           </footer>
         </div>
       )}

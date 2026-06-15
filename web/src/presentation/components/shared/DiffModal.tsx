@@ -50,23 +50,23 @@ export function DiffModal() {
   const commit = () => {
     const msg = message.trim();
     if (!msg) return;
-    run('Commit', () => api.gitCommit(focused!.id, msg), 'Commit creado').then(() =>
+    run('Commit', () => api.gitCommit(focused!.id, msg), 'Commit created').then(() =>
       setMessage(''),
     );
   };
 
   const stash = () =>
-    run('Stash', () => api.gitStash(focused!.id), 'Cambios guardados en stash');
+    run('Stash', () => api.gitStash(focused!.id), 'Changes saved to stash');
 
   const discardAll = () => {
-    if (!window.confirm('¿Descartar TODOS los cambios del working tree? Esto no se puede deshacer.'))
+    if (!window.confirm('Discard ALL changes in the working tree? This cannot be undone.'))
       return;
-    run('Descartar', () => api.gitDiscard(focused!.id), 'Cambios descartados');
+    run('Discard', () => api.gitDiscard(focused!.id), 'Changes discarded');
   };
 
   const discardFile = (path: string) => {
-    if (!window.confirm(`¿Descartar los cambios de "${path}"? Esto no se puede deshacer.`)) return;
-    run('Descartar', () => api.gitDiscard(focused!.id, path), `Descartado: ${path}`);
+    if (!window.confirm(`Discard the changes to "${path}"? This cannot be undone.`)) return;
+    run('Discard', () => api.gitDiscard(focused!.id, path), `Discarded: ${path}`);
   };
 
   if (!focused) return null;
@@ -83,7 +83,7 @@ export function DiffModal() {
             <div className="flex shrink-0 items-center gap-4">
               {snap && (
                 <span className="flex items-center gap-3 font-mono text-[10px] font-semibold">
-                  <span className="text-secondary">{snap.files?.length ?? 0} archivos</span>
+                  <span className="text-secondary">{snap.files?.length ?? 0} files</span>
                   <span className="text-alert-green">+{snap.additions}</span>
                   <span className="text-alert-red">−{snap.deletions}</span>
                 </span>
@@ -91,7 +91,7 @@ export function DiffModal() {
               <button
                 className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
                 onClick={refresh}
-                title="Refrescar diff"
+                title="Refresh diff"
               >
                 <IconRefresh />
               </button>
@@ -116,7 +116,7 @@ export function DiffModal() {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && commit()}
               disabled={!dirty || busy}
-              placeholder="Mensaje de commit…"
+              placeholder="Commit message…"
               className="min-w-0 flex-1 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-1.5 font-mono text-[12px] text-[var(--text-primary)] placeholder:text-muted focus:border-gold focus:outline-none disabled:opacity-50"
             />
             <button
@@ -139,16 +139,16 @@ export function DiffModal() {
               className="btn-tactical btn-tactical--danger flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 disabled:opacity-40"
               onClick={discardAll}
               disabled={!dirty || busy}
-              title="Descartar todos los cambios"
+              title="Discard all changes"
             >
-              <IconTrash className="h-4 w-4" /> <span className="hud-label">Descartar</span>
+              <IconTrash className="h-4 w-4" /> <span className="hud-label">Discard</span>
             </button>
           </div>
 
           {snap && (
             <footer className="border-t border-[var(--border-secondary)] px-5 py-1.5">
               <span className="hud-label">
-                Actualizado {new Date(snap.updatedAt).toLocaleTimeString()} · en vivo vía WebSocket
+                Updated {new Date(snap.updatedAt).toLocaleTimeString()} · live via WebSocket
               </span>
             </footer>
           )}

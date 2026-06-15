@@ -46,7 +46,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
     } catch (err) {
       useStore.getState().pushToast({
         level: 'error',
-        title: 'No se pudo crear',
+        title: 'Could not create',
         message: (err as Error).message,
       });
     } finally {
@@ -60,7 +60,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
         {(requestClose) => (
           <div className="glass-panel flex w-[480px] max-w-[92vw] flex-col overflow-hidden">
             <header className="flex items-center justify-between border-b border-[var(--border-secondary)] px-5 py-3">
-              <span className="hud-label">Registrar proyecto</span>
+              <span className="hud-label">Register project</span>
               <button
                 className="btn-tactical flex items-center justify-center p-1.5"
                 onClick={requestClose}
@@ -70,7 +70,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
             </header>
 
             <form onSubmit={(e) => submit(e, requestClose)} className="flex flex-col gap-2.5 p-5">
-              <label className="hud-label">Carpeta del repositorio</label>
+              <label className="hud-label">Repository folder</label>
               <div className="flex gap-1.5">
                 <input
                   className="hud-input min-w-0 flex-1"
@@ -84,7 +84,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
                   type="button"
                   className="btn-tactical btn-tactical--cyan flex shrink-0 items-center justify-center px-3"
                   onClick={() => setBrowsing(true)}
-                  title="Explorar carpetas"
+                  title="Browse folders"
                 >
                   <IconFolder />
                 </button>
@@ -93,12 +93,12 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
               {/* El nombre del proyecto = nombre de la carpeta seleccionada */}
               {name && (
                 <p className="hud-label flex items-center gap-2">
-                  Se registrará como
+                  Will be registered as
                   <span className="hud-value normal-case">{name}</span>
                 </p>
               )}
 
-              <label className="hud-label mt-2">Agente predeterminado</label>
+              <label className="hud-label mt-2">Default agent</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {AGENT_PRESETS.map((preset) => {
                   const selected = !custom && cliCommand === preset.cmd;
@@ -129,7 +129,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
                       : 'border-[var(--border-secondary)] text-muted hover:border-[var(--border-primary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  Otro — escribir comando
+                  Other — type command
                 </button>
               </div>
 
@@ -139,21 +139,21 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
                   className="hud-input"
                   value={cliCommand}
                   onChange={(e) => setCliCommand(e.target.value)}
-                  placeholder="mi-agente --flags"
+                  placeholder="my-agent --flags"
                   autoFocus
                 />
               )}
 
               <div className="mt-4 flex justify-end gap-2">
                 <button type="button" className="btn-tactical" onClick={requestClose}>
-                  Cancelar
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-tactical btn-tactical--cyan"
                   disabled={busy || !name}
                 >
-                  {busy ? 'Registrando…' : 'Registrar'}
+                  {busy ? 'Registering…' : 'Register'}
                 </button>
               </div>
             </form>

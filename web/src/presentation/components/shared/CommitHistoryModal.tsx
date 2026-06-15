@@ -34,7 +34,7 @@ export function CommitHistoryModal() {
         setCommits([]);
         useStore.getState().pushToast({
           level: 'error',
-          title: 'Historial',
+          title: 'History',
           message: (err as Error).message,
         });
       });
@@ -63,7 +63,7 @@ export function CommitHistoryModal() {
       .catch((err) =>
         useStore.getState().pushToast({
           level: 'error',
-          title: 'Diff del commit',
+          title: 'Commit diff',
           message: (err as Error).message,
         }),
       )
@@ -102,7 +102,7 @@ export function CommitHistoryModal() {
           <header className="flex items-center justify-between gap-4 border-b border-[var(--border-secondary)] px-5 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <IconGitCommit className="h-4 w-4 shrink-0 text-gold" />
-              <span className="hud-label shrink-0">Historial</span>
+              <span className="hud-label shrink-0">History</span>
               <span className="hud-value truncate">{focused.name}</span>
               {focused.path && commits && (
                 <span className="hud-label shrink-0">· {commits.length} commits</span>
@@ -112,7 +112,7 @@ export function CommitHistoryModal() {
               <button
                 className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
                 onClick={loadCommits}
-                title="Recargar historial"
+                title="Reload history"
               >
                 <IconRefresh />
               </button>
@@ -129,9 +129,9 @@ export function CommitHistoryModal() {
             {/* Lista de commits */}
             <aside className="styled-scrollbar w-80 shrink-0 overflow-y-auto border-r border-[var(--border-secondary)]">
               {commits === null ? (
-                <CenteredLoader label="Cargando historial…" />
+                <CenteredLoader label="Loading history…" />
               ) : commits.length === 0 ? (
-                <p className="hud-label px-4 py-4">Sin commits en esta rama</p>
+                <p className="hud-label px-4 py-4">No commits on this branch</p>
               ) : (
                 commits.map((c) => (
                   <button
@@ -154,7 +154,7 @@ export function CommitHistoryModal() {
                       <span className="ml-auto shrink-0">{formatDate(c.date)}</span>
                     </span>
                     <span className="flex items-center gap-2 font-mono text-[10px] font-semibold">
-                      <span className="hud-label">{c.files?.length ?? 0} arch.</span>
+                      <span className="hud-label">{c.files?.length ?? 0} files</span>
                       <span className="text-alert-green">+{c.additions}</span>
                       <span className="text-alert-red">−{c.deletions}</span>
                     </span>
@@ -177,12 +177,12 @@ export function CommitHistoryModal() {
                 </div>
               )}
               {diffLoading || (selected && diff === null) ? (
-                <CenteredLoader label="Cargando diff del commit…" />
+                <CenteredLoader label="Loading commit diff…" />
               ) : snap ? (
                 <DiffFileList snap={snap} />
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  <p className="hud-label">Selecciona un commit para ver sus cambios</p>
+                  <p className="hud-label">Select a commit to see its changes</p>
                 </div>
               )}
             </div>

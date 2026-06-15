@@ -38,7 +38,7 @@ func (s *Server) handleProjectFile(w http.ResponseWriter, r *http.Request) {
 
 	content, err := s.uc.GetFile(r.Context(), p.Path, clean)
 	if err != nil {
-		s.failMsg(w, "el path no existe o no es un archivo", http.StatusNotFound)
+		s.failMsg(w, "the path does not exist or is not a file", http.StatusNotFound)
 		return
 	}
 	writeJSON(w, http.StatusOK, content)
@@ -59,7 +59,7 @@ func (s *Server) handleProjectRaw(w http.ResponseWriter, r *http.Request) {
 	abs := filepath.Join(p.Path, clean)
 	info, err := os.Stat(abs)
 	if err != nil || info.IsDir() {
-		s.failMsg(w, "el path no existe o no es un archivo", http.StatusNotFound)
+		s.failMsg(w, "the path does not exist or is not a file", http.StatusNotFound)
 		return
 	}
 
@@ -110,12 +110,12 @@ func (s *Server) handleProjectFileDiff(w http.ResponseWriter, r *http.Request) {
 func (s *Server) cleanRepoPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	rel := r.URL.Query().Get("path")
 	if rel == "" {
-		s.failMsg(w, "falta el parámetro path", http.StatusBadRequest)
+		s.failMsg(w, "missing path parameter", http.StatusBadRequest)
 		return "", false
 	}
 	clean := filepath.Clean(filepath.FromSlash(rel))
 	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		s.failMsg(w, "path fuera del repositorio", http.StatusBadRequest)
+		s.failMsg(w, "path outside the repository", http.StatusBadRequest)
 		return "", false
 	}
 	return clean, true

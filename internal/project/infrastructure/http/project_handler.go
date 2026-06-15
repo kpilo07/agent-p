@@ -22,7 +22,7 @@ func (s *Server) handleBrowseFS(w http.ResponseWriter, r *http.Request) {
 	listing, err := s.uc.BrowseFS(r.Context(), r.URL.Query().Get("path"))
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			s.failMsg(w, "el path no existe o no es un directorio", http.StatusBadRequest)
+			s.failMsg(w, "the path does not exist or is not a directory", http.StatusBadRequest)
 			return
 		}
 		s.fail(w, err, http.StatusInternalServerError)
@@ -57,7 +57,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Name == "" || req.Path == "" {
-		s.failMsg(w, "name y path son obligatorios", http.StatusBadRequest)
+		s.failMsg(w, "name and path are required", http.StatusBadRequest)
 		return
 	}
 	abs, err := filepath.Abs(req.Path)
@@ -66,11 +66,11 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if info, err := os.Stat(abs); err != nil || !info.IsDir() {
-		s.failMsg(w, "el path no existe o no es un directorio", http.StatusBadRequest)
+		s.failMsg(w, "the path does not exist or is not a directory", http.StatusBadRequest)
 		return
 	}
 	if !isGitRepo(abs) {
-		s.failMsg(w, "el directorio no es un repositorio git", http.StatusBadRequest)
+		s.failMsg(w, "the directory is not a git repository", http.StatusBadRequest)
 		return
 	}
 	p, err := s.uc.CreateProject(r.Context(), req.Name, abs, req.CLICommand)
@@ -153,7 +153,7 @@ func (s *Server) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	termID := r.PathValue("termId")
 	if termID == domain.AgentTermID {
-		s.failMsg(w, "la terminal del agente se cierra deteniendo el proyecto", http.StatusBadRequest)
+		s.failMsg(w, "the agent terminal is closed by stopping the project", http.StatusBadRequest)
 		return
 	}
 	if err := s.uc.CloseTerminal(r.Context(), p.ID, termID); err != nil && !errors.Is(err, domain.ErrNotRunning) {
@@ -203,7 +203,7 @@ func (s *Server) handleProjectCommitDiff(w http.ResponseWriter, r *http.Request)
 	}
 	hash := r.URL.Query().Get("hash")
 	if !isValidCommitHash(hash) {
-		s.failMsg(w, "hash de commit inválido", http.StatusBadRequest)
+		s.failMsg(w, "invalid commit hash", http.StatusBadRequest)
 		return
 	}
 	diff, err := s.uc.GetCommitDiff(r.Context(), p.Path, hash)
@@ -240,7 +240,7 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if !isValidBranchName(req.Branch) {
-		s.failMsg(w, "nombre de rama inválido", http.StatusBadRequest)
+		s.failMsg(w, "invalid branch name", http.StatusBadRequest)
 		return
 	}
 	if err := s.uc.GitCheckout(r.Context(), p.ID, req.Branch, req.Create); err != nil {
@@ -297,7 +297,7 @@ func (s *Server) handleInterruptProject(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := s.uc.InterruptAgent(p.ID); err != nil {
 		if errors.Is(err, domain.ErrNotRunning) {
-			s.failMsg(w, "el agente no está en ejecución", http.StatusConflict)
+			s.failMsg(w, "the agent is not running", http.StatusConflict)
 			return
 		}
 		s.fail(w, err, http.StatusInternalServerError)
@@ -317,7 +317,7 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Message == "" {
-		s.failMsg(w, "el mensaje de commit es obligatorio", http.StatusBadRequest)
+		s.failMsg(w, "the commit message is required", http.StatusBadRequest)
 		return
 	}
 	if err := s.uc.GitCommit(r.Context(), p.ID, req.Message); err != nil {
@@ -398,7 +398,7 @@ func (s *Server) failMsg(w http.ResponseWriter, msg string, status int) {
 
 func (s *Server) failNotFound(w http.ResponseWriter, err error) {
 	if errors.Is(err, domain.ErrNotFound) {
-		s.failMsg(w, "proyecto no encontrado", http.StatusNotFound)
+		s.failMsg(w, "project not found", http.StatusNotFound)
 		return
 	}
 	s.fail(w, err, http.StatusInternalServerError)

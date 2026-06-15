@@ -51,7 +51,7 @@ export function TerminalModal() {
 
   const isAgent = termId === AGENT_TERM_ID;
   const title = isAgent
-    ? focused.cliCommand || 'Agente'
+    ? focused.cliCommand || 'Agent'
     : (terminals.find((t) => t.id === termId)?.title ?? termId);
 
   const pinToBoard = () => {
@@ -80,7 +80,7 @@ export function TerminalModal() {
           <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--border-secondary)] px-5 py-2.5">
             <div className="flex min-w-0 items-center gap-3">
               <IconTerminal className="h-4 w-4 shrink-0 text-gold" />
-              <span className="hud-label shrink-0">{isAgent ? 'Agente' : 'Shell'}</span>
+              <span className="hud-label shrink-0">{isAgent ? 'Agent' : 'Shell'}</span>
               <span className="hud-value truncate">{title}</span>
               <span className="hud-label truncate">· {focused.name}</span>
             </div>
@@ -88,7 +88,7 @@ export function TerminalModal() {
               <button
                 className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
                 onClick={pinToBoard}
-                title="Anclar al tablero (Mapa Táctico)"
+                title="Pin to board (Tactical Map)"
               >
                 <IconPin className="h-3.5 w-3.5" />
               </button>
@@ -96,7 +96,7 @@ export function TerminalModal() {
                 <button
                   className="btn-tactical btn-tactical--danger flex items-center justify-center p-1.5"
                   onClick={closeShell}
-                  title="Cerrar este shell"
+                  title="Close this shell"
                 >
                   <IconTrash className="h-3.5 w-3.5" />
                 </button>
@@ -104,7 +104,7 @@ export function TerminalModal() {
               <button
                 className="btn-tactical flex items-center justify-center p-1.5"
                 onClick={requestClose}
-                title="Cerrar ventana"
+                title="Close window"
               >
                 <IconClose />
               </button>

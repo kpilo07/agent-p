@@ -11,9 +11,9 @@ import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { IconBell, IconChevronDown, IconLogo, IconLogout } from '../ui/icons';
 
 const WS_STATUS_STYLE = {
-  open: { cls: 'notification-pulse--green', label: 'LINK ACTIVO' },
-  connecting: { cls: 'notification-pulse--gold', label: 'CONECTANDO' },
-  closed: { cls: '', label: 'SIN CONEXIÓN' },
+  open: { cls: 'notification-pulse--green', label: 'LINK ACTIVE' },
+  connecting: { cls: 'notification-pulse--gold', label: 'CONNECTING' },
+  closed: { cls: '', label: 'OFFLINE' },
 } as const;
 
 export function StatusBar() {
@@ -55,7 +55,7 @@ export function StatusBar() {
         </span>
         {focused && (
           <span className="hud-label flex min-w-0 items-center gap-1.5">
-            FOCO <span className="hud-value truncate">{focused.name}</span>
+            FOCUS <span className="hud-value truncate">{focused.name}</span>
           </span>
         )}
         {focused && branch && <BranchSwitcher projectId={focused.id} current={branch} />}
@@ -68,7 +68,7 @@ export function StatusBar() {
             totalUnread > 0 ? 'text-gold' : 'text-muted'
           } hover:text-gold`}
           onClick={() => useStore.getState().setProjectsModalOpen(true)}
-          title={totalUnread > 0 ? `${totalUnread} eventos sin leer` : 'Sin notificaciones'}
+          title={totalUnread > 0 ? `${totalUnread} unread events` : 'No notifications'}
         >
           <IconBell className="h-3.5 w-3.5" />
           <span className="hud-value">{totalUnread}</span>
@@ -82,10 +82,10 @@ export function StatusBar() {
         <button
           className="flex items-center gap-1.5 text-muted transition-colors hover:text-gold"
           onClick={logout}
-          title="Cerrar sesión"
+          title="Log out"
         >
           <IconLogout className="h-3.5 w-3.5" />
-          <span className="hud-label">SALIR</span>
+          <span className="hud-label">LOG OUT</span>
         </button>
 
         {/* Menú de proyectos abiertos: salto rápido entre ellos */}
@@ -96,9 +96,9 @@ export function StatusBar() {
                 menuOpen ? '!text-[var(--text-primary)]' : ''
               }`}
               onClick={() => setMenuOpen((o) => !o)}
-              title="Proyectos abiertos"
+              title="Open projects"
             >
-              ABIERTOS <span className="hud-value">{activeProjects.length}</span>
+              OPEN <span className="hud-value">{activeProjects.length}</span>
               <IconChevronDown
                 className={`h-3 w-3 transition-transform duration-200 ${
                   menuOpen ? '' : 'rotate-180'
@@ -136,7 +136,7 @@ export function StatusBar() {
                             {pending > 9 ? '9+' : pending}
                           </span>
                         )}
-                        {isFocused && <span className="hud-label shrink-0">foco</span>}
+                        {isFocused && <span className="hud-label shrink-0">focus</span>}
                       </button>
                     );
                   })}

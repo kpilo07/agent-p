@@ -68,14 +68,14 @@ interface BgConfig {
 const BG_STORAGE_KEY = 'map-bg-config';
 
 const BG_PATTERNS: { id: BgPattern; label: string; icon: string }[] = [
-  { id: 'dots',      label: 'Puntos',       icon: '·' },
-  { id: 'lines',     label: 'Líneas',       icon: '≡' },
-  { id: 'cross',     label: 'Cruz',         icon: '⊞' },
-  { id: 'dashedgrid',label: 'Cuadrícula',   icon: '⬚' },
-  { id: 'circuit',   label: 'Circuito',     icon: '⊙' },
+  { id: 'dots',      label: 'Dots',         icon: '·' },
+  { id: 'lines',     label: 'Lines',        icon: '≡' },
+  { id: 'cross',     label: 'Cross',        icon: '⊞' },
+  { id: 'dashedgrid',label: 'Grid',         icon: '⬚' },
+  { id: 'circuit',   label: 'Circuit',      icon: '⊙' },
   { id: 'diagonal',  label: 'Diagonal',     icon: '⤢' },
   { id: 'zigzag',    label: 'Zigzag',       icon: '∿' },
-  { id: 'none',      label: 'Limpio',       icon: '□' },
+  { id: 'none',      label: 'Clean',        icon: '□' },
 ];
 
 const BG_VARIANT_MAP: Record<BgPattern, BackgroundVariant | null> = {
@@ -318,7 +318,7 @@ function RepoNode({ data }: NodeProps<MapNode>) {
         </span>
       )}
       {data.isDeleted && (
-        <span className="ml-auto shrink-0 text-[9px] font-semibold text-alert-red">borrado</span>
+        <span className="ml-auto shrink-0 text-[9px] font-semibold text-alert-red">deleted</span>
       )}
 
       {data.kind !== 'file' && (
@@ -372,12 +372,12 @@ function TerminalNode({ data }: NodeProps<TermNode>) {
       {/* Cabecera: zona de arrastre (sin nodrag) + botones (con nodrag) */}
       <div className="map-term-node__header">
         <IconTerminal className="h-3.5 w-3.5 shrink-0 text-gold" />
-        <span className="hud-label shrink-0">{isAgent ? 'Agente' : 'Shell'}</span>
+        <span className="hud-label shrink-0">{isAgent ? 'Agent' : 'Shell'}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-secondary">{title}</span>
         <button
           className="nodrag map-term-node__btn"
           onClick={popOut}
-          title="Devolver a ventana (desanclar)"
+          title="Return to window (unpin)"
         >
           <IconPinOff className="h-3.5 w-3.5" />
         </button>
@@ -385,7 +385,7 @@ function TerminalNode({ data }: NodeProps<TermNode>) {
           <button
             className="nodrag map-term-node__btn map-term-node__btn--danger"
             onClick={closeShell}
-            title="Cerrar este shell"
+            title="Close this shell"
           >
             <IconTrash className="h-3.5 w-3.5" />
           </button>
@@ -539,7 +539,7 @@ export function NodeMap() {
       .catch((err) =>
         useStore.getState().pushToast({
           level: 'error',
-          title: 'Mapa táctico',
+          title: 'Tactical Map',
           message: (err as Error).message,
         }),
       );
@@ -570,7 +570,7 @@ export function NodeMap() {
     if (!focused || !pinned?.length) return [];
     const titleFor = (termId: string) =>
       termId === AGENT_TERM_ID
-        ? focused.cliCommand || 'Agente'
+        ? focused.cliCommand || 'Agent'
         : (terminals?.find((t) => t.id === termId)?.title ?? termId);
     return pinned.map((p: PinnedTerm) => ({
       id: `term:${p.termId}`,
@@ -741,15 +741,15 @@ export function NodeMap() {
             <button
               className={`map-bg-trigger ${bgMenuOpen ? 'map-bg-trigger--open' : ''}`}
               onClick={() => setBgMenuOpen((v) => !v)}
-              title="Cambiar fondo del mapa"
+              title="Change map background"
             >
               <IconSettings className="h-3.5 w-3.5" />
-              <span>Configuración</span>
+              <span>Settings</span>
             </button>
 
             {bgMenuOpen && (
               <div className="map-bg-menu">
-                <p className="map-bg-menu__section">Fondo</p>
+                <p className="map-bg-menu__section">Background</p>
                 <div className="map-bg-menu__grid">
                   {BG_PATTERNS.map((p) => (
                     <button
@@ -771,7 +771,7 @@ export function NodeMap() {
           <button
             className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
             onClick={() => setReloadSeq((n) => n + 1)}
-            title="Recargar árbol"
+            title="Reload tree"
           >
             <IconRefresh className="h-3.5 w-3.5" />
           </button>
@@ -785,7 +785,7 @@ export function NodeMap() {
                 {alertNewCount > 0 && (
                   <>
                     <span className="notification-pulse notification-pulse--green" />
-                    {alertNewCount} nuevo(s)
+                    {alertNewCount} new
                   </>
                 )}
                 {alertNewCount > 0 && alertModCount > 0 && (
@@ -794,7 +794,7 @@ export function NodeMap() {
                 {alertModCount > 0 && (
                   <>
                     <span className="notification-pulse notification-pulse--gold" />
-                    {alertModCount} cambiando
+                    {alertModCount} changing
                   </>
                 )}
               </>
@@ -803,7 +803,7 @@ export function NodeMap() {
                 {newFileCount > 0 && (
                   <>
                     <span className="notification-pulse notification-pulse--green" />
-                    {newFileCount} nuevo(s)
+                    {newFileCount} new
                   </>
                 )}
                 {newFileCount > 0 && dirtyCount - newFileCount > 0 && (
@@ -812,20 +812,20 @@ export function NodeMap() {
                 {dirtyCount - newFileCount > 0 && (
                   <>
                     <span className="notification-pulse notification-pulse--gold" />
-                    {dirtyCount - newFileCount} modificado(s)
+                    {dirtyCount - newFileCount} modified
                   </>
                 )}
                 {newFileCount === 0 && dirtyCount - newFileCount === 0 && (
                   <>
                     <span className="notification-pulse notification-pulse--gold" />
-                    {dirtyCount} sin commit
+                    {dirtyCount} uncommitted
                   </>
                 )}
               </>
             ) : (
               <>
                 <span className="notification-pulse notification-pulse--green" />
-                Working tree limpio · vigilando en vivo
+                Working tree clean · watching live
               </>
             )}
           </span>
@@ -848,10 +848,10 @@ export function NodeMap() {
           </header>
           <div className="min-h-0 flex-1 overflow-hidden bg-[var(--bg-primary)]">
             {hoverRows === null ? (
-              <p className="hud-label px-3 py-2">Cargando cambios…</p>
+              <p className="hud-label px-3 py-2">Loading changes…</p>
             ) : hoverRows.length === 0 ? (
               <p className="hud-label px-3 py-2">
-                Sin diff textual (binario o pendiente de git add)
+                No textual diff (binary or pending git add)
               </p>
             ) : (
               <DiffRows rows={hoverRows.slice(0, 40)} />
@@ -860,7 +860,7 @@ export function NodeMap() {
           {hoverRows !== null && hoverRows.length > 40 && (
             <footer className="shrink-0 border-t border-[var(--border-primary)] px-3 py-1">
               <span className="hud-label">
-                +{hoverRows.length - 40} líneas más · clic para abrir el archivo
+                +{hoverRows.length - 40} more lines · click to open the file
               </span>
             </footer>
           )}

@@ -85,7 +85,7 @@ export function DiffFileList({
       <div className="flex h-full items-center justify-center">
         <p className="hud-label flex items-center gap-2">
           <span className="notification-pulse notification-pulse--green" />
-          Working tree limpio
+          Working tree clean
         </p>
       </div>
     );
@@ -120,7 +120,7 @@ export function DiffFileList({
                 <button
                   className="ml-2 shrink-0 cursor-pointer rounded p-1 text-muted opacity-0 transition-all hover:bg-[var(--hover-accent)] hover:text-alert-red group-hover:opacity-100"
                   onClick={() => onDiscardFile(file.path)}
-                  title={`Descartar cambios de ${file.path}`}
+                  title={`Discard changes to ${file.path}`}
                 >
                   <IconTrash className="h-3.5 w-3.5" />
                 </button>
@@ -133,8 +133,8 @@ export function DiffFileList({
                 {file.rows.length === 0 ? (
                   <p className="hud-label px-12 py-3">
                     {file.status.includes('?')
-                      ? 'Archivo nuevo sin seguimiento (sin diff hasta hacer git add)'
-                      : 'Sin diff textual (binario o sin cambios de contenido)'}
+                      ? 'New untracked file (no diff until git add)'
+                      : 'No text diff (binary or no content changes)'}
                   </p>
                 ) : (
                   <DiffRows rows={file.rows} />
