@@ -193,6 +193,30 @@ func (w *Watcher) Stash(ctx context.Context, path string) error {
 	return err
 }
 
+func (w *Watcher) Branches(ctx context.Context, path string) (*domain.GitBranches, error) {
+	out, err := runGit(ctx, path, "branch", "--format=%(refname:short)")
+	if err != nil {
+		return nil, err
+	}
+	br := &domain.GitBranches{Current: currentBranch(ctx, path)}
+	for line := range strings.Lines(strings.TrimRight(string(out), "\n")) {
+		if name := strings.TrimSpace(line); name != "" {
+			br.Local = append(br.Local, name)
+		}
+	}
+	return br, nil
+}
+
+func (w *Watcher) Checkout(ctx context.Context, path, branch string, create bool) error {
+	args := []string{"checkout"}
+	if create {
+		args = append(args, "-b")
+	}
+	args = append(args, branch)
+	_, err := runGit(ctx, path, args...)
+	return err
+}
+
 func (w *Watcher) Discard(ctx context.Context, path, file string) error {
 	if file == "" {
 		if _, err := runGit(ctx, path, "reset", "--hard", "HEAD"); err != nil {

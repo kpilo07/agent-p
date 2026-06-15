@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import type {
   ActivityEvent,
   Commit,
+  GitBranches,
   GitSnapshot,
   PinnedTerm,
   Project,
@@ -24,6 +25,7 @@ export type {
   Project,
   GitSnapshot,
   Commit,
+  GitBranches,
   TermInfo,
   FileStat,
   ActivityEvent,

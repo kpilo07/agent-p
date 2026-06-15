@@ -7,7 +7,8 @@ import { apiClient } from '../../../infrastructure/api/ApiClient';
 import { projectService } from '../../../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { useGit } from '../../hooks/useGit';
-import { IconBell, IconChevronDown, IconGitBranch, IconLogo, IconLogout } from '../ui/icons';
+import { BranchSwitcher } from '../shared/BranchSwitcher';
+import { IconBell, IconChevronDown, IconLogo, IconLogout } from '../ui/icons';
 
 const WS_STATUS_STYLE = {
   open: { cls: 'notification-pulse--green', label: 'LINK ACTIVO' },
@@ -57,15 +58,7 @@ export function StatusBar() {
             FOCO <span className="hud-value truncate">{focused.name}</span>
           </span>
         )}
-        {focused && branch && (
-          <span
-            className="hud-label flex min-w-0 shrink items-center gap-1.5"
-            title={`Rama actual: ${branch}`}
-          >
-            <IconGitBranch className="h-3.5 w-3.5 shrink-0 text-gold" />
-            <span className="hud-value truncate">{branch}</span>
-          </span>
-        )}
+        {focused && branch && <BranchSwitcher projectId={focused.id} current={branch} />}
       </div>
 
       <div className="flex shrink-0 items-center gap-4">

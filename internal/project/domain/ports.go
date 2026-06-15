@@ -53,6 +53,10 @@ type GitService interface {
 	Log(ctx context.Context, path string, limit int) ([]Commit, error)
 	// CommitDiff devuelve el diff unificado completo de un commit (git show).
 	CommitDiff(ctx context.Context, path, hash string) (string, error)
+	// Branches lista las ramas locales y la actual.
+	Branches(ctx context.Context, path string) (*GitBranches, error)
+	// Checkout cambia a `branch`; si create, la crea (git checkout -b).
+	Checkout(ctx context.Context, path, branch string, create bool) error
 
 	// Operaciones de gobierno del repo (mutan el repo, no el código fuente
 	// desde la UI: consolidan o revierten el trabajo del agente).
@@ -133,6 +137,8 @@ type ProjectUseCases interface {
 	GetFileDiff(ctx context.Context, projectPath, filePath string) (string, error)
 	GetCommits(ctx context.Context, projectPath string, limit int) ([]Commit, error)
 	GetCommitDiff(ctx context.Context, projectPath, hash string) (string, error)
+	GetBranches(ctx context.Context, projectPath string) (*GitBranches, error)
+	GitCheckout(ctx context.Context, projectID, branch string, create bool) error
 
 	// Árbol de archivos
 	GetFileTree(ctx context.Context, projectPath string) (*TreeNode, error)

@@ -80,6 +80,12 @@ type Commit struct {
 	Files     []FileStat `json:"files"`
 }
 
+// GitBranches enumera las ramas locales del repo y marca la actual.
+type GitBranches struct {
+	Current string   `json:"current"`         // rama actual (vacío si detached)
+	Local   []string `json:"local"`           // ramas locales, orden de git
+}
+
 // TermInfo describe una terminal activa para la UI.
 type TermInfo struct {
 	ID      string `json:"id"`

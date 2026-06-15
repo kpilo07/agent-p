@@ -121,6 +121,12 @@ export interface CommitDiff {
   diff: string;
 }
 
+/** Ramas locales del repo y la actual (espejo de domain.GitBranches en Go). */
+export interface GitBranches {
+  current: string;
+  local: string[] | null;
+}
+
 export interface FileContent {
   path: string;
   content: string;

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"agent-p/internal/project/domain"
 )
@@ -211,6 +212,67 @@ func (s *Server) handleProjectCommitDiff(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"hash": hash, "diff": diff})
+}
+
+func (s *Server) handleProjectBranches(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	branches, err := s.uc.GetBranches(r.Context(), p.Path)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, branches)
+}
+
+func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	var req struct {
+		Branch string `json:"branch"`
+		Create bool   `json:"create"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !isValidBranchName(req.Branch) {
+		s.failMsg(w, "nombre de rama inválido", http.StatusBadRequest)
+		return
+	}
+	if err := s.uc.GitCheckout(r.Context(), p.ID, req.Branch, req.Create); err != nil {
+		// El fallo típico es un working tree con cambios que se sobreescribirían:
+		// 409 + el mensaje de git para que la UI lo muestre tal cual.
+		s.fail(w, err, http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// isValidBranchName aplica una validación pragmática de las reglas de refs de
+// git. Clave de seguridad: rechaza el guion inicial para que el nombre no se
+// interprete como flag en `git checkout`.
+func isValidBranchName(b string) bool {
+	if b == "" || len(b) > 255 {
+		return false
+	}
+	if strings.HasPrefix(b, "-") || strings.HasPrefix(b, "/") || strings.HasSuffix(b, "/") ||
+		strings.HasSuffix(b, ".lock") || strings.Contains(b, "..") || strings.Contains(b, "@{") {
+		return false
+	}
+	for _, c := range b {
+		if c <= 0x20 || c == 0x7f { // control y espacio
+			return false
+		}
+		switch c {
+		case '~', '^', ':', '?', '*', '[', '\\':
+			return false
+		}
+	}
+	return true
 }
 
 // isValidCommitHash acepta solo hex (4–64 chars): evita inyectar flags/refs

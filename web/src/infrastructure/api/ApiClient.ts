@@ -8,6 +8,7 @@ import type {
   FileContent,
   FileDiff,
   FsListing,
+  GitBranches,
   GitSnapshot,
   Project,
   TermInfo,
@@ -106,6 +107,17 @@ class ApiClient implements IApiRepository {
 
   getCommitDiff(id: string, hash: string): Promise<CommitDiff> {
     return this.request(`/api/projects/${id}/commit?hash=${encodeURIComponent(hash)}`);
+  }
+
+  getBranches(id: string): Promise<GitBranches> {
+    return this.request(`/api/projects/${id}/branches`);
+  }
+
+  gitCheckout(id: string, branch: string, create?: boolean): Promise<void> {
+    return this.request(`/api/projects/${id}/git/checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ branch, create: create ?? false }),
+    });
   }
 
   gitCommit(id: string, message: string): Promise<void> {

@@ -241,6 +241,26 @@ func (s *ProjectService) GetCommitDiff(ctx context.Context, projectPath, hash st
 	return s.git.CommitDiff(ctx, projectPath, hash)
 }
 
+func (s *ProjectService) GetBranches(ctx context.Context, projectPath string) (*domain.GitBranches, error) {
+	return s.git.Branches(ctx, projectPath)
+}
+
+func (s *ProjectService) GitCheckout(ctx context.Context, projectID, branch string, create bool) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.Checkout(ctx, p.Path, branch, create); err != nil {
+		return err
+	}
+	msg := "Cambio de rama: " + branch
+	if create {
+		msg = "Rama creada: " + branch
+	}
+	s.record(ctx, projectID, domain.ActivityBranchSwitch, msg)
+	return nil
+}
+
 // ── Árbol de archivos ────────────────────────────────────────────
 
 func (s *ProjectService) GetFileTree(_ context.Context, projectPath string) (*domain.TreeNode, error) {

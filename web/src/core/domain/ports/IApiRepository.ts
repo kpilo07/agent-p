@@ -7,6 +7,7 @@ import type {
   FileContent,
   FileDiff,
   FsListing,
+  GitBranches,
   GitSnapshot,
   Project,
   TermInfo,
@@ -38,6 +39,8 @@ export interface IApiRepository {
   getFileDiff(id: string, path: string): Promise<FileDiff>;
   getCommits(id: string, limit?: number): Promise<Commit[]>;
   getCommitDiff(id: string, hash: string): Promise<CommitDiff>;
+  getBranches(id: string): Promise<GitBranches>;
+  gitCheckout(id: string, branch: string, create?: boolean): Promise<void>;
   gitCommit(id: string, message: string): Promise<void>;
   gitStash(id: string): Promise<void>;
   gitDiscard(id: string, path?: string): Promise<void>;

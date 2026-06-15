@@ -64,6 +64,8 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	protected.HandleFunc("GET /api/projects/{id}/diff", s.handleProjectDiff)
 	protected.HandleFunc("GET /api/projects/{id}/commits", s.handleProjectCommits)
 	protected.HandleFunc("GET /api/projects/{id}/commit", s.handleProjectCommitDiff)
+	protected.HandleFunc("GET /api/projects/{id}/branches", s.handleProjectBranches)
+	protected.HandleFunc("POST /api/projects/{id}/git/checkout", s.handleGitCheckout)
 	protected.HandleFunc("GET /api/projects/{id}/tree", s.handleProjectTree)
 	protected.HandleFunc("GET /api/projects/{id}/file", s.handleProjectFile)
 	protected.HandleFunc("GET /api/projects/{id}/raw", s.handleProjectRaw)
