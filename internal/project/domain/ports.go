@@ -74,7 +74,9 @@ type GitService interface {
 
 	// Operaciones de gobierno del repo (mutan el repo, no el código fuente
 	// desde la UI: consolidan o revierten el trabajo del agente).
-	Commit(ctx context.Context, path, message string) error
+	// Commit consolida el trabajo. Si files está vacío, incluye todos los
+	// cambios (git add -A); si no, hace un commit parcial solo de esas rutas.
+	Commit(ctx context.Context, path, message string, files []string) error
 	Stash(ctx context.Context, path string) error
 	// Discard revierte el working tree. Si file == "" descarta todos los cambios.
 	Discard(ctx context.Context, path, file string) error
@@ -143,7 +145,9 @@ type ProjectUseCases interface {
 	InterruptAgent(projectID string) error
 
 	// Acciones de gobierno del repo (sobre el trabajo del agente)
-	GitCommit(ctx context.Context, projectID, message string) error
+	// GitCommit consolida el trabajo del agente. files vacío = todos los
+	// cambios; en caso contrario, commit parcial solo de esas rutas.
+	GitCommit(ctx context.Context, projectID, message string, files []string) error
 	GitStash(ctx context.Context, projectID string) error
 	GitDiscard(ctx context.Context, projectID, file string) error
 

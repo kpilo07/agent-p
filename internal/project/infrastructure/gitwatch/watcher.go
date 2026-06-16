@@ -200,11 +200,22 @@ func (w *Watcher) recordActivity(ctx context.Context, projectID, prevBranch stri
 
 // ── Operaciones de gobierno del repo ─────────────────────────────
 
-func (w *Watcher) Commit(ctx context.Context, path, message string) error {
-	if _, err := runGit(ctx, path, "add", "-A"); err != nil {
+func (w *Watcher) Commit(ctx context.Context, path, message string, files []string) error {
+	// Sin selección: consolida todo el working tree (comportamiento clásico).
+	if len(files) == 0 {
+		if _, err := runGit(ctx, path, "add", "-A"); err != nil {
+			return err
+		}
+		_, err := runGit(ctx, path, "commit", "-m", message)
 		return err
 	}
-	_, err := runGit(ctx, path, "commit", "-m", message)
+	// Commit parcial: solo las rutas elegidas. "add --" prepara index para los
+	// untracked/nuevos; "commit -- <paths>" consolida exactamente esas rutas
+	// (desde el working tree) y deja intacto cualquier otro cambio en staging.
+	if _, err := runGit(ctx, path, append([]string{"add", "--"}, files...)...); err != nil {
+		return err
+	}
+	_, err := runGit(ctx, path, append([]string{"commit", "-m", message, "--"}, files...)...)
 	return err
 }
 

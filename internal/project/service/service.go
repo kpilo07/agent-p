@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -137,15 +138,19 @@ func (s *ProjectService) InterruptAgent(projectID string) error {
 
 // ── Gobierno del repo (sobre el trabajo del agente) ──────────────
 
-func (s *ProjectService) GitCommit(ctx context.Context, projectID, message string) error {
+func (s *ProjectService) GitCommit(ctx context.Context, projectID, message string, files []string) error {
 	p, err := s.projects.GetProject(ctx, projectID)
 	if err != nil {
 		return err
 	}
-	if err := s.git.Commit(ctx, p.Path, message); err != nil {
+	if err := s.git.Commit(ctx, p.Path, message, files); err != nil {
 		return err
 	}
-	s.record(ctx, projectID, domain.ActivityCommit, "Commit: "+message)
+	detail := "Commit: " + message
+	if len(files) > 0 {
+		detail = fmt.Sprintf("Commit (%d archivos): %s", len(files), message)
+	}
+	s.record(ctx, projectID, domain.ActivityCommit, detail)
 	return nil
 }
 

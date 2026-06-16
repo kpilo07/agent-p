@@ -47,7 +47,7 @@ export interface IApiRepository {
   gitFetch(id: string): Promise<void>;
   gitPush(id: string): Promise<void>;
   gitPull(id: string): Promise<void>;
-  gitCommit(id: string, message: string): Promise<void>;
+  gitCommit(id: string, message: string, files?: string[]): Promise<void>;
   gitStash(id: string): Promise<void>;
   gitDiscard(id: string, path?: string): Promise<void>;
 
