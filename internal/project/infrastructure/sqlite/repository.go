@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -47,6 +48,23 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_project ON activity(project_id, id DESC);
+
+CREATE TABLE IF NOT EXISTS tickets (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	title       TEXT NOT NULL DEFAULT '',
+	body        TEXT NOT NULL DEFAULT '',
+	files       TEXT NOT NULL DEFAULT '[]',
+	status      TEXT NOT NULL DEFAULT 'draft',
+	base_commit TEXT NOT NULL DEFAULT '',
+	head_commit TEXT NOT NULL DEFAULT '',
+	branch      TEXT NOT NULL DEFAULT '',
+	created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	launched_at TIMESTAMP,
+	closed_at   TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_project ON tickets(project_id, id DESC);
 `
 
 // Store implementa ProjectRepository y SessionRepository sobre SQLite.
@@ -236,9 +254,128 @@ func (s *Store) ListActivity(ctx context.Context, projectID string, limit int) (
 	return events, rows.Err()
 }
 
+// ── domain.TicketRepository ──────────────────────────────────────
+
+func (s *Store) CreateTicket(ctx context.Context, t domain.Ticket) (domain.Ticket, error) {
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now().UTC()
+	}
+	if t.Status == "" {
+		t.Status = domain.TicketDraft
+	}
+	if t.Files == nil {
+		t.Files = []string{}
+	}
+	files, _ := json.Marshal(t.Files)
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO tickets (project_id, title, body, files, status, base_commit, head_commit, branch, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.ProjectID, t.Title, t.Body, string(files), t.Status, t.BaseCommit, t.HeadCommit, t.Branch, t.CreatedAt)
+	if err != nil {
+		return domain.Ticket{}, fmt.Errorf("sqlite: create ticket: %w", err)
+	}
+	t.ID, _ = res.LastInsertId()
+	return t, nil
+}
+
+func (s *Store) ListTickets(ctx context.Context, projectID string) ([]domain.Ticket, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, project_id, title, body, files, status, base_commit, head_commit, branch, created_at, launched_at, closed_at
+		 FROM tickets WHERE project_id = ? ORDER BY id DESC LIMIT 200`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: list tickets: %w", err)
+	}
+	defer rows.Close()
+
+	tickets := []domain.Ticket{}
+	for rows.Next() {
+		t, err := scanTicket(rows)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, t)
+	}
+	return tickets, rows.Err()
+}
+
+func (s *Store) GetTicket(ctx context.Context, id int64) (domain.Ticket, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, project_id, title, body, files, status, base_commit, head_commit, branch, created_at, launched_at, closed_at
+		 FROM tickets WHERE id = ?`, id)
+	t, err := scanTicket(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.Ticket{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Ticket{}, fmt.Errorf("sqlite: get ticket: %w", err)
+	}
+	return t, nil
+}
+
+func (s *Store) UpdateTicket(ctx context.Context, t domain.Ticket) error {
+	if t.Files == nil {
+		t.Files = []string{}
+	}
+	files, _ := json.Marshal(t.Files)
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE tickets SET title = ?, body = ?, files = ?, status = ?, base_commit = ?, head_commit = ?, branch = ?, launched_at = ?, closed_at = ?
+		 WHERE id = ?`,
+		t.Title, t.Body, string(files), t.Status, t.BaseCommit, t.HeadCommit, t.Branch,
+		nullTime(t.LaunchedAt), nullTime(t.ClosedAt), t.ID)
+	if err != nil {
+		return fmt.Errorf("sqlite: update ticket: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) DeleteTicket(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM tickets WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("sqlite: delete ticket: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+// scanner abstrae *sql.Row y *sql.Rows (ambos exponen Scan).
+type scanner interface{ Scan(dest ...any) error }
+
+func scanTicket(sc scanner) (domain.Ticket, error) {
+	var t domain.Ticket
+	var files string
+	var launched, closed sql.NullTime
+	if err := sc.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Body, &files, &t.Status,
+		&t.BaseCommit, &t.HeadCommit, &t.Branch, &t.CreatedAt, &launched, &closed); err != nil {
+		return domain.Ticket{}, err
+	}
+	if err := json.Unmarshal([]byte(files), &t.Files); err != nil || t.Files == nil {
+		t.Files = []string{}
+	}
+	if launched.Valid {
+		t.LaunchedAt = &launched.Time
+	}
+	if closed.Valid {
+		t.ClosedAt = &closed.Time
+	}
+	return t, nil
+}
+
+func nullTime(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return *t
+}
+
 // Compile-time checks.
 var (
 	_ domain.ProjectRepository  = (*Store)(nil)
 	_ domain.SessionRepository  = (*Store)(nil)
 	_ domain.ActivityRepository = (*Store)(nil)
+	_ domain.TicketRepository   = (*Store)(nil)
 )

@@ -105,7 +105,7 @@ func run() error {
 
 	// ── Capa de servicio (casos de uso del bounded context) ──────
 
-	svc := service.New(store, store, gitWatcher, manager, fsWatcher, h, store, recorder)
+	svc := service.New(store, store, gitWatcher, manager, fsWatcher, h, store, recorder, store)
 
 	// Limpiar sesiones huérfanas del arranque anterior.
 	if err := svc.InitSessions(ctx); err != nil {

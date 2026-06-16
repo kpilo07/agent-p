@@ -12,6 +12,7 @@ import type {
   GrepMatch,
   Project,
   TermInfo,
+  Ticket,
   TreeNode,
 } from '../project';
 
@@ -52,6 +53,14 @@ export interface IApiRepository {
 
   // Timeline de actividad
   getActivity(id: string, limit?: number): Promise<ActivityEvent[]>;
+
+  // Tickets
+  listTickets(id: string): Promise<Ticket[]>;
+  createTicket(id: string, data: { title: string; body: string; files: string[] }): Promise<Ticket>;
+  launchTicket(ticketId: number): Promise<Ticket>;
+  closeTicket(ticketId: number): Promise<Ticket>;
+  deleteTicket(ticketId: number): Promise<void>;
+  ticketCommits(ticketId: number): Promise<Commit[]>;
 
   // Árbol de archivos
   getTree(id: string): Promise<TreeNode>;

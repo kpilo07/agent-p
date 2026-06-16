@@ -51,7 +51,8 @@ export type ActivityKind =
   | 'commit'
   | 'stash'
   | 'discard'
-  | 'interrupt';
+  | 'interrupt'
+  | 'ticket';
 
 /** Entrada del timeline de actividad de un proyecto. */
 export interface ActivityEvent {
@@ -144,4 +145,23 @@ export interface FileContent {
   size: number;
   truncated: boolean;
   binary: boolean;
+}
+
+/** Estado del ciclo de vida de un ticket (espejo de domain.Ticket* en Go). */
+export type TicketStatus = 'draft' | 'launched' | 'closed';
+
+/** Tarea/ticket redactado por el usuario e inyectado al agente como prompt. */
+export interface Ticket {
+  id: number;
+  projectId: string;
+  title: string;
+  body: string;
+  files: string[] | null;
+  status: TicketStatus;
+  baseCommit: string;
+  headCommit: string;
+  branch: string;
+  createdAt: string;
+  launchedAt?: string;
+  closedAt?: string;
 }

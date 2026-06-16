@@ -36,6 +36,13 @@ export const IconClose = (p: IconProps) => (
   </Svg>
 );
 
+export const IconTicket = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 6 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-6Z" />
+    <path d="M13 7v10" strokeDasharray="2 2" />
+  </Svg>
+);
+
 export const IconChevronsLeft = (p: IconProps) => (
   <Svg {...p}>
     <path d="m11 17-5-5 5-5M18 17l-5-5 5-5" />

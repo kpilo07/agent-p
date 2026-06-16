@@ -13,6 +13,7 @@ import type {
   GrepMatch,
   Project,
   TermInfo,
+  Ticket,
   TreeNode,
 } from '../../core/domain/project';
 
@@ -157,6 +158,33 @@ class ApiClient implements IApiRepository {
 
   getActivity(id: string, limit?: number): Promise<ActivityEvent[]> {
     return this.request(`/api/projects/${id}/activity${limit ? `?limit=${limit}` : ''}`);
+  }
+
+  listTickets(id: string): Promise<Ticket[]> {
+    return this.request(`/api/projects/${id}/tickets`);
+  }
+
+  createTicket(id: string, data: { title: string; body: string; files: string[] }): Promise<Ticket> {
+    return this.request(`/api/projects/${id}/tickets`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  launchTicket(ticketId: number): Promise<Ticket> {
+    return this.request(`/api/tickets/${ticketId}/launch`, { method: 'POST' });
+  }
+
+  closeTicket(ticketId: number): Promise<Ticket> {
+    return this.request(`/api/tickets/${ticketId}/close`, { method: 'POST' });
+  }
+
+  deleteTicket(ticketId: number): Promise<void> {
+    return this.request(`/api/tickets/${ticketId}`, { method: 'DELETE' });
+  }
+
+  ticketCommits(ticketId: number): Promise<Commit[]> {
+    return this.request(`/api/tickets/${ticketId}/commits`);
   }
 
   getFileDiff(id: string, path: string): Promise<FileDiff> {

@@ -39,6 +39,9 @@ const CommitHistoryModal = lazy(() =>
 const ActivityModal = lazy(() =>
   import('./components/shared/ActivityModal').then((m) => ({ default: m.ActivityModal })),
 );
+const TicketModal = lazy(() =>
+  import('./components/shared/TicketModal').then((m) => ({ default: m.TicketModal })),
+);
 const FileViewerModal = lazy(() =>
   import('./components/shared/FileViewerModal').then((m) => ({ default: m.FileViewerModal })),
 );
@@ -99,6 +102,7 @@ function MainApp() {
   const diffOpen = useStore((s) => s.diffModalOpen);
   const commitHistoryOpen = useStore((s) => s.commitHistoryOpen);
   const activityOpen = useStore((s) => s.activityModalOpen);
+  const ticketsOpen = useStore((s) => s.ticketsModalOpen);
   const projectsOpen = useStore((s) => s.projectsModalOpen);
   const terminalOpen = useStore((s) => s.terminalModalOpen);
   const selectedFile = useStore((s) => s.selectedFile);
@@ -166,6 +170,7 @@ function MainApp() {
         {diffOpen && <DiffModal />}
         {commitHistoryOpen && focused && <CommitHistoryModal />}
         {activityOpen && focused && <ActivityModal />}
+        {ticketsOpen && focused && <TicketModal />}
         {terminalOpen && focused && <TerminalModal />}
         {searchOpen && focused && <FileSearchModal />}
         {contentSearchOpen && focused && <ContentSearchModal />}

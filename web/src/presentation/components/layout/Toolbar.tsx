@@ -16,6 +16,7 @@ import {
   IconStop,
   IconTerminal,
   IconTextSearch,
+  IconTicket,
 } from '../ui/icons';
 
 const ghostBtn =
@@ -129,6 +130,15 @@ export function Toolbar() {
             title="Project activity"
           >
             <IconActivity className="h-4.5 w-4.5" />
+          </button>
+
+          {/* Tickets: redactar una tarea y lanzarla al agente */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setTicketsModalOpen(true)}
+            title="Tickets · Ctrl+I"
+          >
+            <IconTicket className="h-4.5 w-4.5" />
           </button>
 
           {/* Interrumpir al agente (Ctrl-C) — solo si está en ejecución */}

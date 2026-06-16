@@ -4,6 +4,7 @@
 //   Ctrl/⌘ + K       → buscar archivos del repositorio (requiere proyecto en foco)
 //   Ctrl/⌘ + Shift+F → buscar contenido (git grep) en el repositorio
 //   Ctrl/⌘ + P       → abrir el panel de proyectos
+//   Ctrl/⌘ + I       → abrir el panel de tickets (requiere proyecto en foco)
 //   Ctrl/⌘ + `       → crear y abrir una nueva terminal (requiere proyecto en foco)
 //
 // No se disparan cuando el foco está en un campo editable o en una terminal
@@ -57,6 +58,11 @@ export function useGlobalShortcuts(): void {
         case 'p': // panel de proyectos
           e.preventDefault();
           s.setProjectsModalOpen(true);
+          break;
+        case 'i': // tickets (issues)
+          if (!s.focusedId) return;
+          e.preventDefault();
+          s.setTicketsModalOpen(true);
           break;
       }
     };

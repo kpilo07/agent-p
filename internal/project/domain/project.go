@@ -32,7 +32,33 @@ const (
 	ActivityStash        = "stash"         // stash hecho desde la UI
 	ActivityDiscard      = "discard"       // cambios descartados desde la UI
 	ActivityInterrupt    = "interrupt"     // se envió Ctrl-C al agente
+	ActivityTicket       = "ticket"        // se lanzó un ticket al agente
 )
+
+// Estados del ciclo de vida de un Ticket.
+const (
+	TicketDraft    = "draft"    // redactado, aún no enviado al agente
+	TicketLaunched = "launched" // inyectado al agente (sesión en curso)
+	TicketClosed   = "closed"   // cerrado: el rango de commits queda congelado
+)
+
+// Ticket es una tarea redactada por el usuario que se inyecta como prompt al
+// agente. Al lanzarlo se guarda el HEAD (BaseCommit); los commits relacionados
+// son el rango BaseCommit..HEAD, que se congela en HeadCommit al cerrarlo.
+type Ticket struct {
+	ID         int64      `json:"id"`
+	ProjectID  string     `json:"projectId"`
+	Title      string     `json:"title"`
+	Body       string     `json:"body"`
+	Files      []string   `json:"files"`      // rutas relativas del repo mencionadas
+	Status     string     `json:"status"`     // draft | launched | closed
+	BaseCommit string     `json:"baseCommit"` // HEAD al lanzar (inicio del rango)
+	HeadCommit string     `json:"headCommit"` // HEAD al cerrar (fin del rango; "" si abierto)
+	Branch     string     `json:"branch"`     // rama activa al lanzar
+	CreatedAt  time.Time  `json:"createdAt"`
+	LaunchedAt *time.Time `json:"launchedAt,omitempty"`
+	ClosedAt   *time.Time `json:"closedAt,omitempty"`
+}
 
 // ActivityEvent es una entrada del timeline de actividad de un proyecto.
 type ActivityEvent struct {
