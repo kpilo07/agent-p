@@ -709,7 +709,11 @@ html, body, #root {
    ═══════════════════════════════════════════════════════════════ */
 .file-line {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 52px max-content;
+  /* La fila crece con su contenido para que la línea no se corte; el contenedor
+     hace scroll horizontal. min-width 100% mantiene el fondo a lo ancho. */
+  width: max-content;
+  min-width: 100%;
   font-family: var(--font-term);
   font-size: 11px;
   line-height: 1.6;
@@ -723,11 +727,14 @@ html, body, #root {
   user-select: none;
   border-right: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  /* Fija los números al hacer scroll horizontal del código. */
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
 
 .file-line__text {
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;
   padding: 0 12px;
   color: var(--text-primary);
 }
@@ -1074,7 +1081,11 @@ html, body, #root {
    ═══════════════════════════════════════════════════════════════ */
 .diff-row {
   display: grid;
-  grid-template-columns: 46px 46px 1fr;
+  grid-template-columns: 46px 46px max-content;
+  /* La fila crece con su contenido (scroll horizontal); min-width 100% conserva
+     el fondo a lo ancho del contenedor para las líneas cortas. */
+  width: max-content;
+  min-width: 100%;
   font-family: var(--font-term);
   font-size: 11px;
   line-height: 1.6;
@@ -1088,7 +1099,12 @@ html, body, #root {
   user-select: none;
   border-right: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  /* Fija ambas columnas de números al hacer scroll horizontal. */
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
+.diff-row > .diff-row__no:nth-child(2) { left: 46px; }
 
 .diff-row__sign {
   display: inline-block;
@@ -1098,18 +1114,19 @@ html, body, #root {
 }
 
 .diff-row__text {
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;
   padding: 0 10px;
 }
 
 .diff-row--add { background: rgba(69, 212, 131, 0.08); }
 .diff-row--add .diff-row__text { color: #86d996; }
-.diff-row--add .diff-row__no { background: rgba(69, 212, 131, 0.08); color: #5fa873; }
+/* Fondo opaco (tinte sobre base) para que el código no se transparente bajo los
+   números fijos al hacer scroll horizontal. */
+.diff-row--add .diff-row__no { background: linear-gradient(rgba(69, 212, 131, 0.08), rgba(69, 212, 131, 0.08)), var(--bg-secondary); color: #5fa873; }
 
 .diff-row--del { background: rgba(248, 81, 73, 0.08); }
 .diff-row--del .diff-row__text { color: #ff9a93; text-decoration: line-through; text-decoration-color: rgba(248, 81, 73, 0.35); }
-.diff-row--del .diff-row__no { background: rgba(248, 81, 73, 0.08); color: #bf6660; }
+.diff-row--del .diff-row__no { background: linear-gradient(rgba(248, 81, 73, 0.08), rgba(248, 81, 73, 0.08)), var(--bg-secondary); color: #bf6660; }
 
 .diff-row--ctx .diff-row__text { color: var(--text-secondary); }
 
@@ -1122,6 +1139,9 @@ html, body, #root {
 .diff-file-header {
   position: sticky;
   top: 0;
+  /* También fija en horizontal: la cabecera no se desplaza al hacer scroll del
+     código a la derecha. */
+  left: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1135,6 +1155,27 @@ html, body, #root {
   letter-spacing: 0.04em;
   color: var(--text-primary);
   z-index: 10;
+}
+
+/* Checkbox de selección de archivos para el commit (DiffModal). */
+.diff-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.diff-check:hover { border-color: var(--text-secondary); }
+.diff-check--on {
+  background: var(--alert-green);
+  border-color: var(--alert-green);
+  color: #04130a;
 }
 
 /* ── Toasts (sileo): fondo negro sólido, texto claro ─────────────────

@@ -9,7 +9,7 @@ import type { DiffRow } from '../../../core/domain/diff';
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
 const statusTag = (status: string) => diffService.statusTag(status);
 import type { GitSnapshot } from '../../../infrastructure/store/store';
-import { IconChevronDown, IconChevronRight, IconTrash } from '../ui/icons';
+import { IconCheck, IconChevronDown, IconChevronRight, IconTrash } from '../ui/icons';
 
 // ── Filas de un archivo ─────────────────────────────────────────
 
@@ -45,10 +45,15 @@ export function DiffRows({ rows }: { rows: DiffRow[] }) {
 export function DiffFileList({
   snap,
   onDiscardFile,
+  selected,
+  onToggleSelect,
 }: {
   snap?: GitSnapshot;
   /** Si se provee, muestra un botón para descartar los cambios de cada archivo. */
   onDiscardFile?: (path: string) => void;
+  /** Si se provee, muestra un checkbox por archivo para elegir qué entra al commit. */
+  selected?: Set<string>;
+  onToggleSelect?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -100,6 +105,19 @@ export function DiffFileList({
           <div key={file.path} className="border-b border-[var(--border-secondary)]">
             {/* Cabecera del acordeón */}
             <div className="diff-file-header group flex w-full items-center hover:bg-[var(--hover-accent)]">
+              {onToggleSelect && (
+                <button
+                  className={`diff-check mr-2 shrink-0 ${
+                    selected?.has(file.path) ? 'diff-check--on' : ''
+                  }`}
+                  onClick={() => onToggleSelect(file.path)}
+                  role="checkbox"
+                  aria-checked={selected?.has(file.path) ?? false}
+                  title={selected?.has(file.path) ? 'Exclude from commit' : 'Include in commit'}
+                >
+                  {selected?.has(file.path) && <IconCheck className="h-3 w-3" />}
+                </button>
+              )}
               <button
                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                 onClick={() => toggle(file.path)}

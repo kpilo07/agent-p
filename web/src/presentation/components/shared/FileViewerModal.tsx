@@ -119,7 +119,7 @@ export function FileViewerModal() {
             </div>
           </header>
 
-          <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--bg-primary)]">
+          <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-auto bg-[var(--bg-primary)]">
             {loading ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex flex-col items-center gap-3">

@@ -138,10 +138,10 @@ class ApiClient implements IApiRepository {
     return this.request(`/api/projects/${id}/git/pull`, { method: 'POST' });
   }
 
-  gitCommit(id: string, message: string): Promise<void> {
+  gitCommit(id: string, message: string, files?: string[]): Promise<void> {
     return this.request(`/api/projects/${id}/git/commit`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, files: files ?? [] }),
     });
   }
 
