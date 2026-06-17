@@ -1,6 +1,7 @@
 // Layout principal. Orquesta el estado global y conecta los adaptadores
 // de infraestructura con la capa de presentación.
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sileo';
 
 import { apiClient } from '../infrastructure/api/ApiClient';
@@ -97,6 +98,44 @@ export default function App() {
   return <MainApp />;
 }
 
+// Sincroniza el proyecto enfocado con la URL (/p/:id) en ambos sentidos, para
+// que la recarga y los enlaces profundos conserven la vista. El store sigue
+// siendo la fuente de verdad; esto solo refleja focusedId ↔ ruta. No pinta nada.
+function RouteSync() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const focusedId = useStore((s) => s.focusedId);
+  // Foco huérfano: el id de la URL no existe entre los proyectos ya cargados
+  // (proyecto borrado o enlace obsoleto). length > 0 evita limpiar en plena carga.
+  const orphan = useStore(
+    (s) =>
+      !!s.focusedId && s.projects.length > 0 && !s.projects.some((p) => p.id === s.focusedId),
+  );
+
+  const pathId = location.pathname.startsWith('/p/')
+    ? decodeURIComponent(location.pathname.slice(3))
+    : null;
+
+  // URL → store (carga inicial, recarga, back/forward del navegador).
+  useEffect(() => {
+    if (pathId !== useStore.getState().focusedId) {
+      useStore.getState().focusProject(pathId);
+    }
+  }, [pathId]);
+
+  // store → URL (clic en proyecto, acción "View", cerrar proyecto…).
+  useEffect(() => {
+    const target = focusedId ? `/p/${encodeURIComponent(focusedId)}` : '/';
+    if (location.pathname !== target) navigate(target);
+  }, [focusedId, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (orphan) useStore.getState().focusProject(null);
+  }, [orphan]);
+
+  return null;
+}
+
 function MainApp() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
@@ -147,6 +186,7 @@ function MainApp() {
 
   return (
     <div className="relative flex h-full flex-col bg-[var(--bg-void)]">
+      <RouteSync />
       <main className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1.5 p-1.5">
         <div className="min-w-0 flex-1">
           {focused ? (

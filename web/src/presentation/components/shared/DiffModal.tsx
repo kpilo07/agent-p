@@ -148,7 +148,7 @@ export function DiffModal() {
             </div>
           </header>
 
-          <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-auto">
+          <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto">
             <DiffFileList
               snap={snap}
               onDiscardFile={dirty ? discardFile : undefined}
