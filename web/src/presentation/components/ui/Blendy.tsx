@@ -6,9 +6,15 @@
 //   · requestClose lanza blendy.untoggle(id, …) → el panel colapsa al seed y,
 //     al terminar, invoca onClose para desmontar.
 // BlendySeed pinta el origen: un punto fijo en el centro del viewport.
-import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 import { blendyService } from '../../../infrastructure/ui/BlendyService';
+
+// Margen sobre la duración de la animación de Blendy (450ms en modo 'dynamic').
+// Si pasado este tiempo Blendy no ha invocado su callback de fin (animación
+// cancelada por otra modal, o pestaña en segundo plano con rAF pausado),
+// desmontamos igualmente para no dejar el overlay bloqueando la app.
+const CLOSE_FALLBACK_MS = 600;
 
 export function useBlendyModal(onClose: () => void) {
   // useId trae ':' que no es válido como valor de atributo para los selectores
@@ -22,6 +28,8 @@ export function useBlendyModal(onClose: () => void) {
   onCloseRef.current = onClose;
   const closedRef = useRef(false);
   const toggledRef = useRef(false);
+  const finishedRef = useRef(false);
+  const fallbackRef = useRef<number | undefined>(undefined);
 
   useLayoutEffect(() => {
     // Guard: en StrictMode (dev) los efectos corren dos veces sobre los mismos
@@ -33,11 +41,27 @@ export function useBlendyModal(onClose: () => void) {
     b.toggle(id);
   }, [id]);
 
+  // Limpia el timeout de seguridad si la modal se desmonta antes de dispararse.
+  useEffect(() => () => window.clearTimeout(fallbackRef.current), []);
+
   const requestClose = useCallback(() => {
     if (closedRef.current) return; // evita doble untoggle (Escape + clic, etc.)
     closedRef.current = true;
     setClosing(true);
-    blendyService.getBlendy().untoggle(id, () => onCloseRef.current());
+
+    // Desmonta una sola vez, venga de Blendy o del timeout de seguridad.
+    const finish = () => {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      window.clearTimeout(fallbackRef.current);
+      onCloseRef.current();
+    };
+
+    blendyService.getBlendy().untoggle(id, finish);
+    // Red de seguridad: Blendy solo llama a `finish` al completar la animación
+    // (un único slot global; si otra modal anima, esta se cancela y su callback
+    // se pierde). El timeout garantiza el desmontaje pase lo que pase.
+    fallbackRef.current = window.setTimeout(finish, CLOSE_FALLBACK_MS);
   }, [id]);
 
   return { id, closing, requestClose };

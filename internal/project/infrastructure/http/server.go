@@ -76,6 +76,12 @@ func (s *Server) Handler(dist fs.FS) http.Handler {
 	protected.HandleFunc("GET /api/projects/{id}/file-diff", s.handleProjectFileDiff)
 	protected.HandleFunc("GET /api/projects/{id}/sessions", s.handleProjectSessions)
 	protected.HandleFunc("GET /api/projects/{id}/activity", s.handleProjectActivity)
+	protected.HandleFunc("GET /api/projects/{id}/tickets", s.handleListTickets)
+	protected.HandleFunc("POST /api/projects/{id}/tickets", s.handleCreateTicket)
+	protected.HandleFunc("POST /api/tickets/{tid}/launch", s.handleLaunchTicket)
+	protected.HandleFunc("POST /api/tickets/{tid}/close", s.handleCloseTicket)
+	protected.HandleFunc("DELETE /api/tickets/{tid}", s.handleDeleteTicket)
+	protected.HandleFunc("GET /api/tickets/{tid}/commits", s.handleTicketCommits)
 
 	guarded := s.requireAuth(protected)
 	mux.Handle("/api/", guarded)

@@ -200,11 +200,22 @@ func (w *Watcher) recordActivity(ctx context.Context, projectID, prevBranch stri
 
 // ── Operaciones de gobierno del repo ─────────────────────────────
 
-func (w *Watcher) Commit(ctx context.Context, path, message string) error {
-	if _, err := runGit(ctx, path, "add", "-A"); err != nil {
+func (w *Watcher) Commit(ctx context.Context, path, message string, files []string) error {
+	// Sin selección: consolida todo el working tree (comportamiento clásico).
+	if len(files) == 0 {
+		if _, err := runGit(ctx, path, "add", "-A"); err != nil {
+			return err
+		}
+		_, err := runGit(ctx, path, "commit", "-m", message)
 		return err
 	}
-	_, err := runGit(ctx, path, "commit", "-m", message)
+	// Commit parcial: solo las rutas elegidas. "add --" prepara index para los
+	// untracked/nuevos; "commit -- <paths>" consolida exactamente esas rutas
+	// (desde el working tree) y deja intacto cualquier otro cambio en staging.
+	if _, err := runGit(ctx, path, append([]string{"add", "--"}, files...)...); err != nil {
+		return err
+	}
+	_, err := runGit(ctx, path, append([]string{"commit", "-m", message, "--"}, files...)...)
 	return err
 }
 
@@ -389,18 +400,63 @@ const maxLogLimit = 500
 // estado (M/A/D/R). Se fusionan por (hash, ruta). Los registros van separados
 // por \x1e y los campos por \x1f para que el parseo no choque con el contenido.
 func (w *Watcher) Log(ctx context.Context, path string, limit int) ([]domain.Commit, error) {
+	return w.logWith(ctx, path, limit, nil)
+}
+
+// Head devuelve el hash completo de HEAD. Cadena vacía (sin error) si el repo
+// aún no tiene commits.
+func (w *Watcher) Head(ctx context.Context, path string) (string, error) {
+	out, err := runGit(ctx, path, "rev-parse", "HEAD")
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// LogRange devuelve los commits del rango base..head (o base..HEAD si head es
+// ""). Devuelve nil si base está vacío (ticket lanzado sobre un repo sin
+// commits previos). Valida que base/head sean hashes hex para no inyectar refs.
+func (w *Watcher) LogRange(ctx context.Context, path, base, head string, limit int) ([]domain.Commit, error) {
+	if !isHexRef(base) {
+		return nil, nil
+	}
+	spec := base + "..HEAD"
+	if isHexRef(head) {
+		spec = base + ".." + head
+	}
+	return w.logWith(ctx, path, limit, []string{spec})
+}
+
+// isHexRef valida un hash de commit (hex, 4–64 chars). Vacío → false.
+func isHexRef(h string) bool {
+	if len(h) < 4 || len(h) > 64 {
+		return false
+	}
+	for _, c := range h {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
+
+// logWith es el cuerpo común de Log/LogRange. revArgs inyecta la especificación
+// de revisión (p. ej. "base..HEAD") entre "log -n N" y los flags de formato.
+func (w *Watcher) logWith(ctx context.Context, path string, limit int, revArgs []string) ([]domain.Commit, error) {
 	if limit <= 0 || limit > maxLogLimit {
 		limit = defaultLogLimit
 	}
 	n := strconv.Itoa(limit)
 
-	out, err := runGit(ctx, path, "log", "-n", n, "--numstat",
-		"--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s")
+	numArgs := append([]string{"log", "-n", n}, revArgs...)
+	numArgs = append(numArgs, "--numstat", "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s")
+	out, err := runGit(ctx, path, numArgs...)
 	if err != nil {
 		return nil, err
 	}
-	statusOut, _ := runGit(ctx, path, "log", "-n", n, "--name-status",
-		"--pretty=format:%x1e%H")
+	statArgs := append([]string{"log", "-n", n}, revArgs...)
+	statArgs = append(statArgs, "--name-status", "--pretty=format:%x1e%H")
+	statusOut, _ := runGit(ctx, path, statArgs...)
 	statusByCommit := parseNameStatus(statusOut)
 
 	var commits []domain.Commit

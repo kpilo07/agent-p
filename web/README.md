@@ -1,22 +1,41 @@
-# Rspack project
+# agent-p — Web frontend
+
+React + TypeScript frontend for **agent-p**, built with Rspack and structured with
+Hexagonal Architecture (Ports & Adapters). It talks to the Go API over HTTP (`/api`)
+and WebSocket (`/ws`).
+
+> For architecture rules, layer boundaries and conventions, see [AGENTS.md](./AGENTS.md).
+
+## Stack
+
+- **React 19** + **TypeScript**
+- **Rspack** (build / dev server)
+- **Zustand** (UI state)
+- **Tailwind CSS 4**
+- **xterm.js** (terminals), **@xyflow/react** (node map), **highlight.js** (syntax), **marked** (markdown)
 
 ## Setup
 
-Install the dependencies:
+Install dependencies (requires [pnpm](https://pnpm.io)):
 
 ```bash
 pnpm install
 ```
 
-## Get started
+## Development
 
-Start the dev server, and the app will be available at <http://localhost:8080>.
+Start the dev server — the app is served at <http://localhost:8080> and proxies
+`/api` and `/ws` to the Go backend at `localhost:8089`:
 
 ```bash
 pnpm run dev
 ```
 
-Build the app for production:
+Make sure the backend is running (see the repository root README) before opening the app.
+
+## Build
+
+Build for production (output: `web/dist`):
 
 ```bash
 pnpm run build
@@ -28,9 +47,17 @@ Preview the production build locally:
 pnpm run preview
 ```
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl/⌘ + K` | Search repository files |
+| `Ctrl/⌘ + Shift + F` | Search content (`git grep`) |
+| `Ctrl/⌘ + P` | Open the projects panel |
+| `Ctrl/⌘ + I` | Open the tickets panel |
+| `` Ctrl/⌘ + ` `` | Open a new terminal |
+
 ## Learn more
 
-To learn more about Rspack, check out the following resources:
-
-- [Rspack documentation](https://rspack.rs) - explore Rspack features and APIs.
-- [Rspack GitHub repository](https://github.com/web-infra-dev/rspack) - your feedback and contributions are welcome!
+- [Rspack documentation](https://rspack.rs)
+- [Zustand documentation](https://zustand.docs.pmnd.rs)

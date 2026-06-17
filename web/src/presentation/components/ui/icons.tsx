@@ -1,13 +1,14 @@
 // Iconos SVG inline (stroke: currentColor) con tamaño consistente.
 // Sustituyen a los glifos de texto (« » 🗀 ↻ …), que renderizaban diminutos
 // e irregulares con la fuente pixel.
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 interface IconProps {
   className?: string;
+  style?: CSSProperties;
 }
 
-function Svg({ children, className = 'h-4 w-4' }: IconProps & { children: ReactNode }) {
+function Svg({ children, className = 'h-4 w-4', style }: IconProps & { children: ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -17,6 +18,7 @@ function Svg({ children, className = 'h-4 w-4' }: IconProps & { children: ReactN
       strokeLinecap="round"
       strokeLinejoin="round"
       className={`shrink-0 ${className}`}
+      style={style}
       aria-hidden="true"
     >
       {children}
@@ -33,6 +35,13 @@ export const IconPlus = (p: IconProps) => (
 export const IconClose = (p: IconProps) => (
   <Svg {...p}>
     <path d="M18 6 6 18M6 6l12 12" />
+  </Svg>
+);
+
+export const IconTicket = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 6 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-6Z" />
+    <path d="M13 7v10" strokeDasharray="2 2" />
   </Svg>
 );
 
@@ -108,6 +117,35 @@ export const IconFile = (p: IconProps) => (
   <Svg {...p}>
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
     <path d="M14 3v5h5" />
+  </Svg>
+);
+
+// Archivo de código/markup: hoja con un "<>" — para html, css, js, ts, php…
+export const IconFileCode = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+    <path d="M14 3v5h5" />
+    <path d="m10 12-2 2 2 2" />
+    <path d="m14 12 2 2-2 2" />
+  </Svg>
+);
+
+// Archivo de texto/documento: hoja con líneas — para md, txt, log…
+export const IconFileText = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6" />
+    <path d="M9 16h4" />
+  </Svg>
+);
+
+// Imagen — para png, jpg, svg, gif…
+export const IconImage = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <circle cx="8.5" cy="10" r="1.5" />
+    <path d="m21 16-5-5L5 19" />
   </Svg>
 );
 

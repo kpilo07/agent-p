@@ -2,21 +2,48 @@
 // renderizado de líneas viven en DiffView, compartidos con el FileViewerModal
 // del Mapa Táctico. Incluye acciones de gobierno del repo sobre el trabajo del
 // agente: commit, stash y descartar (todo o por archivo).
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { DiffFileList } from './DiffView';
 import { ModalShell } from '../ui/ModalShell';
-import { IconArchive, IconClose, IconGitCommit, IconRefresh, IconTrash } from '../ui/icons';
+import {
+  IconArchive,
+  IconCheck,
+  IconClose,
+  IconGitCommit,
+  IconRefresh,
+  IconTrash,
+} from '../ui/icons';
 
 export function DiffModal() {
   const focused = useStore(selectFocusedProject);
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  // Selección por exclusión: guardamos qué archivos el usuario DESmarcó. Así los
+  // archivos nuevos entran seleccionados por defecto (= commitear todo) y las
+  // desmarcas del usuario sobreviven a los refrescos en vivo del diff.
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
 
   const dirty = (snap?.files?.length ?? 0) > 0;
+
+  const filePaths = useMemo(() => (snap?.files ?? []).map((f) => f.path), [snap?.files]);
+  const selected = useMemo(
+    () => new Set(filePaths.filter((p) => !excluded.has(p))),
+    [filePaths, excluded],
+  );
+  const allSelected = filePaths.length > 0 && selected.size === filePaths.length;
+
+  const toggleSelect = (path: string) =>
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+
+  const toggleAll = () => setExcluded(allSelected ? new Set(filePaths) : new Set());
 
   const refresh = () => {
     if (!focused) return;
@@ -49,8 +76,13 @@ export function DiffModal() {
 
   const commit = () => {
     const msg = message.trim();
-    if (!msg) return;
-    run('Commit', () => api.gitCommit(focused!.id, msg), 'Commit created').then(() =>
+    if (!msg || selected.size === 0) return;
+    // Si están todos seleccionados, mandamos [] → commit de todo (add -A).
+    const files = allSelected ? [] : [...selected];
+    const okMsg = allSelected
+      ? 'Commit created'
+      : `Commit created (${selected.size} file${selected.size === 1 ? '' : 's'})`;
+    run('Commit', () => api.gitCommit(focused!.id, msg, files), okMsg).then(() =>
       setMessage(''),
     );
   };
@@ -81,6 +113,18 @@ export function DiffModal() {
               <span className="hud-value truncate">{focused.name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-4">
+              {dirty && (
+                <button
+                  className="hud-label flex shrink-0 cursor-pointer items-center gap-1.5 hover:text-[var(--text-secondary)]"
+                  onClick={toggleAll}
+                  title={allSelected ? 'Deselect all files' : 'Select all files'}
+                >
+                  <span className={`diff-check ${allSelected ? 'diff-check--on' : ''}`}>
+                    {allSelected && <IconCheck className="h-3 w-3" />}
+                  </span>
+                  {selected.size}/{filePaths.length}
+                </button>
+              )}
               {snap && (
                 <span className="flex items-center gap-3 font-mono text-[10px] font-semibold">
                   <span className="text-secondary">{snap.files?.length ?? 0} files</span>
@@ -105,7 +149,12 @@ export function DiffModal() {
           </header>
 
           <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto">
-            <DiffFileList snap={snap} onDiscardFile={dirty ? discardFile : undefined} />
+            <DiffFileList
+              snap={snap}
+              onDiscardFile={dirty ? discardFile : undefined}
+              selected={dirty ? selected : undefined}
+              onToggleSelect={dirty ? toggleSelect : undefined}
+            />
           </div>
 
           {/* Barra de acciones de gobierno del repo */}
@@ -122,10 +171,17 @@ export function DiffModal() {
             <button
               className="btn-tactical flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 !text-alert-green disabled:opacity-40"
               onClick={commit}
-              disabled={!dirty || busy || !message.trim()}
-              title="git add -A && git commit"
+              disabled={!dirty || busy || !message.trim() || selected.size === 0}
+              title={
+                allSelected
+                  ? 'git add -A && git commit'
+                  : `Commit only the ${selected.size} selected file(s)`
+              }
             >
-              <IconGitCommit className="h-4 w-4" /> <span className="hud-label">Commit</span>
+              <IconGitCommit className="h-4 w-4" />{' '}
+              <span className="hud-label">
+                Commit{dirty && !allSelected ? ` (${selected.size})` : ''}
+              </span>
             </button>
             <button
               className="btn-tactical btn-tactical--cyan flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 disabled:opacity-40"

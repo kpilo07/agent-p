@@ -356,14 +356,15 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Message string `json:"message"`
+		Message string   `json:"message"`
+		Files   []string `json:"files"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Message == "" {
 		s.failMsg(w, "the commit message is required", http.StatusBadRequest)
 		return
 	}
-	if err := s.uc.GitCommit(r.Context(), p.ID, req.Message); err != nil {
+	if err := s.uc.GitCommit(r.Context(), p.ID, req.Message, req.Files); err != nil {
 		s.fail(w, err, http.StatusInternalServerError)
 		return
 	}

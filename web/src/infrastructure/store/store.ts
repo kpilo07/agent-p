@@ -13,6 +13,7 @@ import type {
   PinnedTerm,
   Project,
   TermInfo,
+  Ticket,
   FileStat,
 } from '../../core/domain/project';
 import { AGENT_TERM_ID } from '../../core/domain/project';
@@ -30,6 +31,7 @@ export type {
   FileStat,
   ActivityEvent,
   PinnedTerm,
+  Ticket,
   Toast,
   ToastLevel,
   WsStatus,
@@ -52,6 +54,7 @@ interface AppState {
   diffModalOpen: boolean;
   commitHistoryOpen: boolean;
   activityModalOpen: boolean;
+  ticketsModalOpen: boolean;
   terminals: Record<string, TermInfo[]>;
   focusedTermId: string;
   pinnedTerms: Record<string, PinnedTerm[]>;
@@ -76,6 +79,7 @@ interface AppState {
   setDiffModalOpen: (open: boolean) => void;
   setCommitHistoryOpen: (open: boolean) => void;
   setActivityModalOpen: (open: boolean) => void;
+  setTicketsModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
   pinTerm: (projectId: string, termId: string) => void;
@@ -120,6 +124,7 @@ export const useStore = create<AppState>((set, get) => ({
   diffModalOpen: false,
   commitHistoryOpen: false,
   activityModalOpen: false,
+  ticketsModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
   pinnedTerms: storageService.loadPinnedTerms(),
@@ -193,6 +198,8 @@ export const useStore = create<AppState>((set, get) => ({
   setCommitHistoryOpen: (commitHistoryOpen) => set({ commitHistoryOpen }),
 
   setActivityModalOpen: (activityModalOpen) => set({ activityModalOpen }),
+
+  setTicketsModalOpen: (ticketsModalOpen) => set({ ticketsModalOpen }),
 
   setTerminals: (projectId, terms) =>
     set((s) => ({ terminals: { ...s.terminals, [projectId]: terms } })),

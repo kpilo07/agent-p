@@ -8,7 +8,7 @@
 // movimiento (animated edges de React Flow). La animación de la ruta
 // PERSISTE mientras el archivo tenga cambios sin commit (snap.files de git)
 // y se apaga sola cuando el commit limpia el working tree.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -47,6 +47,9 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconFile,
+  IconFileCode,
+  IconFileText,
+  IconImage,
   IconFolder,
   IconFolderOpen,
   IconPinOff,
@@ -247,6 +250,60 @@ function buildGraph(
 
 // ── Nodo custom ─────────────────────────────────────────────────
 
+// Icono + color por extensión de archivo. Los archivos sin cambios de git
+// muestran el color de su tipo; los modificados conservan el color de estado.
+type FileIcon = typeof IconFile;
+const EXT_VISUAL: Record<string, { Icon: FileIcon; color: string }> = {
+  html: { Icon: IconFileCode, color: '#e34c26' },
+  htm: { Icon: IconFileCode, color: '#e34c26' },
+  xml: { Icon: IconFileCode, color: '#e34c26' },
+  vue: { Icon: IconFileCode, color: '#41b883' },
+  twig: { Icon: IconFileCode, color: '#9acd32' },
+  css: { Icon: IconFileCode, color: '#42a5f5' },
+  scss: { Icon: IconFileCode, color: '#c6538c' },
+  less: { Icon: IconFileCode, color: '#2a6fb0' },
+  js: { Icon: IconFileCode, color: '#f0db4f' },
+  jsx: { Icon: IconFileCode, color: '#f0db4f' },
+  mjs: { Icon: IconFileCode, color: '#f0db4f' },
+  cjs: { Icon: IconFileCode, color: '#f0db4f' },
+  ts: { Icon: IconFileCode, color: '#3178c6' },
+  tsx: { Icon: IconFileCode, color: '#3178c6' },
+  json: { Icon: IconFileCode, color: '#cbcb41' },
+  yaml: { Icon: IconFileCode, color: '#6b9bd1' },
+  yml: { Icon: IconFileCode, color: '#6b9bd1' },
+  toml: { Icon: IconFileCode, color: '#9c6b9b' },
+  php: { Icon: IconFileCode, color: '#8993be' },
+  py: { Icon: IconFileCode, color: '#4b8bbe' },
+  go: { Icon: IconFileCode, color: '#00add8' },
+  rb: { Icon: IconFileCode, color: '#cc342d' },
+  rs: { Icon: IconFileCode, color: '#dea584' },
+  java: { Icon: IconFileCode, color: '#e76f00' },
+  sh: { Icon: IconFileCode, color: '#89e051' },
+  bash: { Icon: IconFileCode, color: '#89e051' },
+  sql: { Icon: IconFileCode, color: '#e38c00' },
+  md: { Icon: IconFileText, color: '#9ca3af' },
+  markdown: { Icon: IconFileText, color: '#9ca3af' },
+  txt: { Icon: IconFileText, color: '#9ca3af' },
+  log: { Icon: IconFileText, color: '#9ca3af' },
+  png: { Icon: IconImage, color: '#ffb13b' },
+  jpg: { Icon: IconImage, color: '#ffb13b' },
+  jpeg: { Icon: IconImage, color: '#ffb13b' },
+  gif: { Icon: IconImage, color: '#ffb13b' },
+  webp: { Icon: IconImage, color: '#ffb13b' },
+  svg: { Icon: IconImage, color: '#ffb13b' },
+  ico: { Icon: IconImage, color: '#ffb13b' },
+  avif: { Icon: IconImage, color: '#ffb13b' },
+  bmp: { Icon: IconImage, color: '#ffb13b' },
+};
+
+// dot > 0 ignora los dotfiles (.gitignore) → icono genérico.
+function fileVisual(name: string): { Icon: FileIcon; color?: string } {
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
+  const v = EXT_VISUAL[ext];
+  return v ? { Icon: v.Icon, color: v.color } : { Icon: IconFile };
+}
+
 function RepoNode({ data }: NodeProps<MapNode>) {
   // Determinar clase de animación del nodo
   const fileAnimCls = data.alert
@@ -254,6 +311,23 @@ function RepoNode({ data }: NodeProps<MapNode>) {
       ? 'animate-file-new'
       : 'animate-file-blink'
     : '';
+
+  // Icono y color del archivo según su tipo (solo para nodos de archivo).
+  const { Icon: FileGlyph, color: typeColor } =
+    data.kind === 'file' ? fileVisual(data.name) : { Icon: IconFile, color: undefined };
+  let fileIconClass = 'h-3.5 w-3.5 shrink-0';
+  let fileIconStyle: CSSProperties | undefined;
+  if (fileAnimCls) {
+    fileIconClass += ` ${fileAnimCls}`;
+  } else if (data.isNew && data.stat) {
+    fileIconClass += ' text-alert-green';
+  } else if (data.stat) {
+    fileIconClass += ' text-gold';
+  } else if (typeColor) {
+    fileIconStyle = { color: typeColor };
+  } else {
+    fileIconClass += ' text-muted';
+  }
 
   const nodeCls = [
     'map-node',
@@ -292,17 +366,7 @@ function RepoNode({ data }: NodeProps<MapNode>) {
           )}
         </>
       ) : (
-        <IconFile
-          className={`h-3.5 w-3.5 shrink-0 ${
-            fileAnimCls
-              ? fileAnimCls
-              : data.isNew && data.stat
-                ? 'text-alert-green'
-                : data.stat
-                  ? 'text-gold'
-                  : 'text-muted'
-          }`}
-        />
+        <FileGlyph className={fileIconClass} style={fileIconStyle} />
       )}
 
       <span className={`min-w-0 truncate ${fileAnimCls}`}>{data.name}</span>

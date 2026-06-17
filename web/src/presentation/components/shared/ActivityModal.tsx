@@ -14,6 +14,7 @@ import {
   IconGitCommit,
   IconStop,
   IconTerminal,
+  IconTicket,
   IconTrash,
 } from '../ui/icons';
 
@@ -32,6 +33,7 @@ const KIND: Record<ActivityKind, KindStyle> = {
   stash: { icon: IconArchive, color: 'text-cyan', label: 'Stash' },
   discard: { icon: IconTrash, color: 'text-alert-red', label: 'Discard' },
   interrupt: { icon: IconStop, color: 'text-gold', label: 'Interrupt' },
+  ticket: { icon: IconTicket, color: 'text-cyan', label: 'Ticket launched' },
 };
 
 const FALLBACK: KindStyle = { icon: IconGitBranch, color: 'text-secondary', label: 'Event' };

@@ -355,7 +355,10 @@ html, body, #root {
   to { opacity: 0; }
 }
 .modal-backdrop-in { animation: modal-backdrop-in 0.2s ease both; }
-.modal-backdrop-out { animation: modal-backdrop-out 0.18s ease forwards; }
+/* Al cerrar, el backdrop se desvanece a opacidad 0 pero sigue montado hasta que
+   termina la animación de Blendy. pointer-events: none evita que un overlay ya
+   invisible (o que tarde en desmontarse) bloquee los clics y congele la app. */
+.modal-backdrop-out { animation: modal-backdrop-out 0.18s ease forwards; pointer-events: none; }
 
 /* ── Blendy: el panel crece desde / colapsa hacia el centro del viewport ──
    El "seed" es el origen de la transición (data-blendy-from): un punto fijo y
@@ -801,6 +804,16 @@ html, body, #root {
   image-rendering: -webkit-optimize-contrast;
 }
 
+/* ── Vista previa de HTML (iframe en sandbox) ── */
+.html-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  border: 0;
+  background: #fff;
+}
+
 /* ── Vista previa de Markdown ── */
 .md-preview {
   font-family: var(--font-body);
@@ -1135,6 +1148,27 @@ html, body, #root {
   letter-spacing: 0.04em;
   color: var(--text-primary);
   z-index: 10;
+}
+
+/* Checkbox de selección de archivos para el commit (DiffModal). */
+.diff-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.diff-check:hover { border-color: var(--text-secondary); }
+.diff-check--on {
+  background: var(--alert-green);
+  border-color: var(--alert-green);
+  color: #04130a;
 }
 
 /* ── Toasts (sileo): fondo negro sólido, texto claro ─────────────────

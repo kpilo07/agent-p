@@ -51,6 +51,13 @@ type GitService interface {
 	// Log devuelve los últimos `limit` commits de la rama actual, cada uno con
 	// sus archivos (estado + numstat) pero sin el diff textual.
 	Log(ctx context.Context, path string, limit int) ([]Commit, error)
+	// Head devuelve el hash completo del commit actual (HEAD). Cadena vacía si
+	// el repo aún no tiene commits.
+	Head(ctx context.Context, path string) (string, error)
+	// LogRange devuelve los commits del rango base..head (o base..HEAD si head
+	// es ""), cada uno con sus archivos. Usado para relacionar commits con un
+	// ticket. Devuelve nil si base está vacío.
+	LogRange(ctx context.Context, path, base, head string, limit int) ([]Commit, error)
 	// CommitDiff devuelve el diff unificado completo de un commit (git show).
 	CommitDiff(ctx context.Context, path, hash string) (string, error)
 	// Branches lista las ramas locales, remotas y la actual.
@@ -67,7 +74,9 @@ type GitService interface {
 
 	// Operaciones de gobierno del repo (mutan el repo, no el código fuente
 	// desde la UI: consolidan o revierten el trabajo del agente).
-	Commit(ctx context.Context, path, message string) error
+	// Commit consolida el trabajo. Si files está vacío, incluye todos los
+	// cambios (git add -A); si no, hace un commit parcial solo de esas rutas.
+	Commit(ctx context.Context, path, message string, files []string) error
 	Stash(ctx context.Context, path string) error
 	// Discard revierte el working tree. Si file == "" descarta todos los cambios.
 	Discard(ctx context.Context, path, file string) error
@@ -83,6 +92,15 @@ type ActivityRepository interface {
 // UI). Es un puerto de salida usado por el service y por los watchers.
 type ActivityRecorder interface {
 	Record(ctx context.Context, ev ActivityEvent)
+}
+
+// TicketRepository abstrae la persistencia de tickets.
+type TicketRepository interface {
+	CreateTicket(ctx context.Context, t Ticket) (Ticket, error)
+	ListTickets(ctx context.Context, projectID string) ([]Ticket, error)
+	GetTicket(ctx context.Context, id int64) (Ticket, error)
+	UpdateTicket(ctx context.Context, t Ticket) error
+	DeleteTicket(ctx context.Context, id int64) error
 }
 
 // TerminalService abstrae la gestión de pseudo-terminales (PTY) por proyecto.
@@ -127,12 +145,24 @@ type ProjectUseCases interface {
 	InterruptAgent(projectID string) error
 
 	// Acciones de gobierno del repo (sobre el trabajo del agente)
-	GitCommit(ctx context.Context, projectID, message string) error
+	// GitCommit consolida el trabajo del agente. files vacío = todos los
+	// cambios; en caso contrario, commit parcial solo de esas rutas.
+	GitCommit(ctx context.Context, projectID, message string, files []string) error
 	GitStash(ctx context.Context, projectID string) error
 	GitDiscard(ctx context.Context, projectID, file string) error
 
 	// Timeline de actividad
 	ListActivity(ctx context.Context, projectID string, limit int) ([]ActivityEvent, error)
+
+	// Tickets: redacción, lanzamiento al agente y seguimiento.
+	ListTickets(ctx context.Context, projectID string) ([]Ticket, error)
+	CreateTicket(ctx context.Context, projectID, title, body string, files []string) (Ticket, error)
+	LaunchTicket(ctx context.Context, ticketID int64) (Ticket, error)
+	CloseTicket(ctx context.Context, ticketID int64) (Ticket, error)
+	DeleteTicket(ctx context.Context, ticketID int64) error
+	// TicketCommits devuelve los commits relacionados con el ticket (rango
+	// BaseCommit..HEAD, o BaseCommit..HeadCommit si está cerrado).
+	TicketCommits(ctx context.Context, ticketID int64) ([]Commit, error)
 
 	// Terminales
 	ListTerminals(projectID string) []TermInfo

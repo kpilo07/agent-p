@@ -16,7 +16,7 @@ The frontend follows **Hexagonal Architecture** (Ports & Adapters) with three la
 src/
 ├── core/                          # The Hexagon — pure business logic, NO framework deps
 │   ├── domain/                    # Entities, value objects and business rules
-│   │   ├── project.ts             # Project, Session, GitSnapshot, TermInfo, TreeNode…
+│   │   ├── project.ts             # Project, Session, GitSnapshot, TermInfo, TreeNode, Ticket…
 │   │   ├── diff.ts                # DiffFile, DiffRow, RowKind
 │   │   ├── events.ts              # ServerEvent, WsStatus, Toast, ToastLevel
 │   │   └── ports/                 # OUTPUT PORTS — contracts the core needs from outside
@@ -48,6 +48,8 @@ src/
     │   ├── ui/                    # 1. Atomic — agnostic primitives, no business logic
     │   │   ├── icons.tsx
     │   │   ├── ModalShell.tsx
+    │   │   ├── ModalLoader.tsx    # Suspense fallback for lazy-loaded modals
+    │   │   ├── AppLoader.tsx      # Full-screen boot loader
     │   │   ├── Blendy.tsx
     │   │   └── AgentLogo.tsx
     │   ├── layout/                # 2. Visual structure
@@ -60,16 +62,54 @@ src/
     │       ├── DiffView.tsx
     │       ├── DirBrowser.tsx
     │       ├── FileSearchModal.tsx
+    │       ├── ContentSearchModal.tsx  # git grep search
     │       ├── FileViewerModal.tsx
     │       ├── ProjectsModal.tsx
     │       ├── AddProjectModal.tsx
-    │       └── TerminalModal.tsx
+    │       ├── CommitHistoryModal.tsx
+    │       ├── ActivityModal.tsx       # Activity timeline (commit, stash, ticket…)
+    │       ├── TicketModal.tsx         # Tickets: redact → launch as agent prompt → track
+    │       ├── BranchSwitcher.tsx
+    │       ├── SyncControl.tsx         # pull / fetch / push
+    │       ├── TerminalModal.tsx
+    │       ├── TerminalView.tsx        # xterm.js mount
+    │       └── ErrorBoundary.tsx
     └── hooks/                     # Connect UI with infrastructure (no direct store access)
         ├── useProjects.ts
         ├── useGit.ts
         ├── useTerminals.ts
-        └── useFileTree.ts
+        ├── useActivity.ts
+        ├── useFileTree.ts
+        └── useGlobalShortcuts.ts       # Global keyboard shortcuts (see below)
 ```
+
+## Keyboard shortcuts
+
+Registered in `hooks/useGlobalShortcuts.ts`. They do not fire while focus is in an
+editable field or a terminal.
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl/⌘ + K` | Search repository files (requires a focused project) |
+| `Ctrl/⌘ + Shift + F` | Search content (`git grep`) in the repository |
+| `Ctrl/⌘ + P` | Open the projects panel |
+| `Ctrl/⌘ + I` | Open the tickets panel (requires a focused project) |
+| `` Ctrl/⌘ + ` `` | Create and open a new terminal (requires a focused project) |
+
+## Tickets feature
+
+A **ticket** is a task the user redacts and injects into the agent as a prompt.
+Launching a ticket starts the agent (if needed), feeds it the ticket body, and opens
+its console for live tracking. Lifecycle status is `draft → launched → closed`
+(`TicketStatus` in `core/domain/project.ts`, mirroring `domain.Ticket*` in Go).
+
+- Domain type: `Ticket` in `core/domain/project.ts`
+- Port methods: `listTickets`, `createTicket`, `launchTicket`, `closeTicket`,
+  `deleteTicket`, `ticketCommits` in `IApiRepository`
+- UI: `TicketModal.tsx` — history on the left, new-ticket editor / existing-ticket
+  detail (with related `base..HEAD` commits) on the right. Files mentioned with `@`
+  are attached from the repo tree.
+- Store flag: `ticketsModalOpen` / `setTicketsModalOpen`
 
 ## Key Rules
 

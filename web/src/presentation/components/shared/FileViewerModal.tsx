@@ -15,6 +15,7 @@ const parseDiff = (diff: string) => diffService.parseDiff(diff);
 const highlightToLines = (code: string, path: string) => highlightService.highlightToLines(code, path);
 const isImagePath = (path: string) => highlightService.isImagePath(path);
 const isMarkdownPath = (path: string) => highlightService.isMarkdownPath(path);
+const isHtmlPath = (path: string) => highlightService.isHtmlPath(path);
 import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { DiffRows } from './DiffView';
 import { ModalShell } from '../ui/ModalShell';
@@ -33,10 +34,13 @@ export function FileViewerModal() {
 
   const isImage = !!path && isImagePath(path);
   const isMarkdown = !!path && isMarkdownPath(path);
+  const isHtml = !!path && isHtmlPath(path);
+  // Markdown y HTML pueden renderizarse en una vista previa.
+  const renderable = isMarkdown || isHtml;
 
-  // Markdown arranca en su preview; lo modificado en el diff; el resto en texto.
+  // Markdown/HTML arrancan en su preview; lo modificado en el diff; el resto en texto.
   const [tab, setTab] = useState<Tab>(
-    dirty ? 'diff' : isMarkdown ? 'preview' : 'content',
+    dirty ? 'diff' : renderable ? 'preview' : 'content',
   );
   const [file, setFile] = useState<FileContent | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
@@ -99,7 +103,7 @@ export function FileViewerModal() {
               {dirty && <span className="gotham-tag gotham-tag--medium shrink-0">modified</span>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {isMarkdown && tabBtn('preview', 'Preview')}
+              {renderable && tabBtn('preview', 'Preview')}
               {tabBtn('content', isImage ? 'Image' : 'Content')}
               {tabBtn('diff', 'Changes')}
               <span className="mx-1 h-4 w-px bg-[var(--border-secondary)]" />
@@ -130,7 +134,11 @@ export function FileViewerModal() {
                 </div>
               </div>
             ) : tab === 'preview' ? (
-              <MarkdownPreview source={file?.content ?? ''} />
+              isHtml ? (
+                <HtmlPreview source={file?.content ?? ''} />
+              ) : (
+                <MarkdownPreview source={file?.content ?? ''} />
+              )
             ) : tab === 'content' ? (
               isImage ? (
                 <ImageBody src={api.rawFileURL(focused.id, path)} path={path} />
@@ -222,6 +230,27 @@ function ImageBody({ src, path }: { src: string; path: string }) {
     <div className="file-image-wrap">
       <img src={src} alt={path} className="file-image" onError={() => setError(true)} />
     </div>
+  );
+}
+
+function HtmlPreview({ source }: { source: string }) {
+  if (!source.trim()) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="hud-label">Empty document</p>
+      </div>
+    );
+  }
+  // iframe en sandbox con origen opaco: el HTML se renderiza y sus scripts
+  // corren aislados (sin allow-same-origin) → no pueden tocar la app ni sus
+  // cookies. Los recursos por ruta relativa (css/img externos) no cargan.
+  return (
+    <iframe
+      className="html-preview"
+      title="HTML preview"
+      sandbox="allow-scripts"
+      srcDoc={source}
+    />
   );
 }
 

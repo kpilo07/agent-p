@@ -6,6 +6,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -13,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"agent-p/internal/project/domain"
@@ -32,6 +35,7 @@ type ProjectService struct {
 	bus      domain.EventBus
 	activity domain.ActivityRepository
 	recorder domain.ActivityRecorder
+	tickets  domain.TicketRepository
 
 	sessMu       sync.Mutex
 	liveSessions map[string]int64 // projectID → sessionID de BD
@@ -47,6 +51,7 @@ func New(
 	bus domain.EventBus,
 	activity domain.ActivityRepository,
 	recorder domain.ActivityRecorder,
+	tickets domain.TicketRepository,
 ) *ProjectService {
 	return &ProjectService{
 		projects:     projects,
@@ -57,6 +62,7 @@ func New(
 		bus:          bus,
 		activity:     activity,
 		recorder:     recorder,
+		tickets:      tickets,
 		liveSessions: make(map[string]int64),
 	}
 }
@@ -132,15 +138,19 @@ func (s *ProjectService) InterruptAgent(projectID string) error {
 
 // ── Gobierno del repo (sobre el trabajo del agente) ──────────────
 
-func (s *ProjectService) GitCommit(ctx context.Context, projectID, message string) error {
+func (s *ProjectService) GitCommit(ctx context.Context, projectID, message string, files []string) error {
 	p, err := s.projects.GetProject(ctx, projectID)
 	if err != nil {
 		return err
 	}
-	if err := s.git.Commit(ctx, p.Path, message); err != nil {
+	if err := s.git.Commit(ctx, p.Path, message, files); err != nil {
 		return err
 	}
-	s.record(ctx, projectID, domain.ActivityCommit, "Commit: "+message)
+	detail := "Commit: " + message
+	if len(files) > 0 {
+		detail = fmt.Sprintf("Commit (%d archivos): %s", len(files), message)
+	}
+	s.record(ctx, projectID, domain.ActivityCommit, detail)
 	return nil
 }
 
@@ -369,6 +379,175 @@ func (s *ProjectService) ListSessions(ctx context.Context, projectID string) ([]
 
 func (s *ProjectService) ListActivity(ctx context.Context, projectID string, limit int) ([]domain.ActivityEvent, error) {
 	return s.activity.ListActivity(ctx, projectID, limit)
+}
+
+// ── Tickets ──────────────────────────────────────────────────────
+
+// Secuencias de bracketed paste: envuelven el texto inyectado para que los
+// agentes TUI modernos (Claude Code, Codex…) lo traten como un pegado único
+// —sin enviar al pulsar Enter intermedios— y el \r final lo confirma.
+const (
+	pasteStart = "\x1b[200~"
+	pasteEnd   = "\x1b[201~"
+)
+
+// ticketStartupDelay es el margen para que el agente arranque y entre en su
+// bucle de lectura antes de inyectarle el prompt cuando no estaba en ejecución.
+const ticketStartupDelay = 1500 * time.Millisecond
+
+func (s *ProjectService) ListTickets(ctx context.Context, projectID string) ([]domain.Ticket, error) {
+	return s.tickets.ListTickets(ctx, projectID)
+}
+
+func (s *ProjectService) CreateTicket(ctx context.Context, projectID, title, body string, files []string) (domain.Ticket, error) {
+	if _, err := s.projects.GetProject(ctx, projectID); err != nil {
+		return domain.Ticket{}, err
+	}
+	if files == nil {
+		files = []string{}
+	}
+	return s.tickets.CreateTicket(ctx, domain.Ticket{
+		ProjectID: projectID,
+		Title:     strings.TrimSpace(title),
+		Body:      body,
+		Files:     files,
+		Status:    domain.TicketDraft,
+	})
+}
+
+// LaunchTicket inyecta el ticket como prompt al agente. Modo inteligente: si el
+// agente ya corre, escribe en su PTY; si no, arranca el proyecto y le inyecta el
+// prompt tras un breve margen de arranque. La primera vez fija el commit base y
+// la rama para poder relacionar después los commits del agente con el ticket.
+func (s *ProjectService) LaunchTicket(ctx context.Context, ticketID int64) (domain.Ticket, error) {
+	t, err := s.tickets.GetTicket(ctx, ticketID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	p, err := s.projects.GetProject(ctx, t.ProjectID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+
+	payload := []byte(pasteStart + buildTicketPrompt(t) + pasteEnd + "\r")
+
+	if s.terminal.Running(p.ID, domain.AgentTermID) {
+		if err := s.terminal.Write(p.ID, domain.AgentTermID, payload); err != nil {
+			return domain.Ticket{}, err
+		}
+	} else {
+		if err := s.StartProject(ctx, p); err != nil && !errors.Is(err, domain.ErrAlreadyRunning) {
+			return domain.Ticket{}, err
+		}
+		pid := p.ID
+		time.AfterFunc(ticketStartupDelay, func() {
+			_ = s.terminal.Write(pid, domain.AgentTermID, payload)
+		})
+	}
+
+	// El commit base y la rama se fijan solo en el primer lanzamiento: un
+	// relanzamiento (re-inyección) conserva el rango original.
+	if t.Status == domain.TicketDraft {
+		base, _ := s.git.Head(ctx, p.Path)
+		t.BaseCommit = base
+		if br, berr := s.git.Branches(ctx, p.Path); berr == nil {
+			t.Branch = br.Current
+		}
+		now := time.Now().UTC()
+		t.LaunchedAt = &now
+	}
+	t.Status = domain.TicketLaunched
+	if err := s.tickets.UpdateTicket(ctx, t); err != nil {
+		return domain.Ticket{}, err
+	}
+	s.record(ctx, p.ID, domain.ActivityTicket, "Ticket lanzado: "+ticketLabel(t))
+	return t, nil
+}
+
+// CloseTicket congela el rango de commits del ticket guardando el HEAD actual.
+func (s *ProjectService) CloseTicket(ctx context.Context, ticketID int64) (domain.Ticket, error) {
+	t, err := s.tickets.GetTicket(ctx, ticketID)
+	if err != nil {
+		return domain.Ticket{}, err
+	}
+	if t.Status == domain.TicketClosed {
+		return t, nil
+	}
+	if p, perr := s.projects.GetProject(ctx, t.ProjectID); perr == nil {
+		if head, _ := s.git.Head(ctx, p.Path); head != "" {
+			t.HeadCommit = head
+		}
+	}
+	now := time.Now().UTC()
+	t.ClosedAt = &now
+	t.Status = domain.TicketClosed
+	if err := s.tickets.UpdateTicket(ctx, t); err != nil {
+		return domain.Ticket{}, err
+	}
+	return t, nil
+}
+
+func (s *ProjectService) DeleteTicket(ctx context.Context, ticketID int64) error {
+	return s.tickets.DeleteTicket(ctx, ticketID)
+}
+
+func (s *ProjectService) TicketCommits(ctx context.Context, ticketID int64) ([]domain.Commit, error) {
+	t, err := s.tickets.GetTicket(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	if t.BaseCommit == "" {
+		return []domain.Commit{}, nil
+	}
+	p, err := s.projects.GetProject(ctx, t.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	commits, err := s.git.LogRange(ctx, p.Path, t.BaseCommit, t.HeadCommit, 200)
+	if err != nil {
+		return nil, err
+	}
+	if commits == nil {
+		commits = []domain.Commit{}
+	}
+	return commits, nil
+}
+
+// buildTicketPrompt arma el texto que recibe el agente: título, cuerpo y, si
+// las hay, las rutas mencionadas como @ruta (las reconoce p. ej. Claude Code).
+func buildTicketPrompt(t domain.Ticket) string {
+	var b strings.Builder
+	if t.Title != "" {
+		b.WriteString(t.Title)
+		b.WriteString("\n\n")
+	}
+	b.WriteString(t.Body)
+	if len(t.Files) > 0 {
+		b.WriteString("\n\nArchivos relevantes:\n")
+		for _, f := range t.Files {
+			b.WriteString("@")
+			b.WriteString(f)
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
+// ticketLabel resume el ticket para el timeline: el título o la primera línea
+// del cuerpo, recortado.
+func ticketLabel(t domain.Ticket) string {
+	s := t.Title
+	if s == "" {
+		s, _, _ = strings.Cut(t.Body, "\n")
+	}
+	s = strings.TrimSpace(s)
+	if len(s) > 80 {
+		s = s[:80] + "…"
+	}
+	if s == "" {
+		return "(sin título)"
+	}
+	return s
 }
 
 // ── Explorador de sistema de archivos ────────────────────────────
