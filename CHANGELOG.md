@@ -6,6 +6,34 @@ y el versionado sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-16
+
+### Añadido
+- **Gestor de tickets**: crea tickets con título, descripción y archivos
+  asociados; lánzalos (o relánzalos) al agente, ciérralos y consulta los
+  commits relacionados con cada ticket (rango base..HEAD). Accesible desde el
+  toolbar.
+- **Commits granulares**: en el panel de review puedes elegir qué archivos
+  entran en el commit (checkbox por archivo y selector de "todos"), para
+  repartir el trabajo en varios commits. Por defecto entran todos; el commit
+  parcial usa `git commit -- <rutas>` y deja el resto en el working tree.
+- **Iconos por tipo de archivo** en el Mapa de nodos: html, css, js/ts, php,
+  json, imágenes, markdown… cada extensión con su icono y color de lenguaje.
+  Los archivos con cambios conservan el color de estado de git.
+- **Vista previa de HTML** renderizado en el visor de archivos (iframe en
+  sandbox), junto a la ya existente de Markdown.
+- **Rutas en la URL** (React Router): el proyecto abierto se refleja en
+  `/p/:id`, así al recargar o compartir el enlace se conserva la vista (antes la
+  recarga volvía siempre a la lista de proyectos). Atrás/adelante del navegador
+  funcionan.
+
+### Corregido
+- **Congelamiento al cerrar un modal**: si la animación de cierre se interrumpía
+  (al abrir otro modal) o la pestaña estaba en segundo plano, el overlay quedaba
+  capturando los clics y la app parecía colgada. Ahora el desmontaje está
+  garantizado (red de seguridad por tiempo) y el fondo en cierre no bloquea la
+  interacción.
+
 ## [0.3.0] - 2026-06-15
 
 ### Añadido
@@ -69,7 +97,8 @@ frontend de React embebido.
 - **Code-splitting (lazy loading)** del frontend: la descarga inicial baja de
   ~1.3 MiB a ~0.4 MiB; las librerías pesadas se cargan bajo demanda.
 
-[Unreleased]: https://github.com/kpilo07/agent-p/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kpilo07/agent-p/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kpilo07/agent-p/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kpilo07/agent-p/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kpilo07/agent-p/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kpilo07/agent-p/releases/tag/v0.1.0
