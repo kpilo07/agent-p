@@ -21,12 +21,14 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 // Diferidos (code-splitting): componentes pesados o que no se necesitan en el
 // arranque. Cada uno arrastra su librería grande a su propio chunk async, fuera
 // del bundle inicial:
-//   · NodeMap        → @xyflow/react + xterm (vía TerminalView)
+//   · NodeMap        → @xyflow/react
+//   · Sidebar        → xterm (vía TerminalView)
 //   · FileViewerModal→ marked + highlight.js
 //   · DiffModal      → highlight.js
 //   · TerminalModal  → xterm
 // Los named exports se adaptan a default export para React.lazy.
 const NodeMap = lazy(() => import('./components/layout/NodeMap').then((m) => ({ default: m.NodeMap })));
+const Sidebar = lazy(() => import('./components/layout/Sidebar').then((m) => ({ default: m.Sidebar })));
 const ProjectsModal = lazy(() =>
   import('./components/shared/ProjectsModal').then((m) => ({ default: m.ProjectsModal })),
 );
@@ -187,7 +189,7 @@ function MainApp() {
   return (
     <div className="relative flex h-full flex-col bg-[var(--bg-void)]">
       <RouteSync />
-      <main className="relative z-10 flex min-h-0 min-w-0 flex-1 gap-1.5 p-1.5">
+      <main className="relative z-10 flex min-h-0 min-w-0 flex-1">
         <div className="min-w-0 flex-1">
           {focused ? (
             <ErrorBoundary key={focused.id} resetKey={focused.id} label="The node map could not be rendered">
@@ -199,6 +201,12 @@ function MainApp() {
             <Home />
           )}
         </div>
+        {/* Sidebar de terminales/agentes: overlay izquierdo sobre el tablero. */}
+        {focused && (
+          <Suspense fallback={null}>
+            <Sidebar />
+          </Suspense>
+        )}
       </main>
 
       <StatusBar />

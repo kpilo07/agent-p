@@ -10,7 +10,6 @@ import type {
   Commit,
   GitBranches,
   GitSnapshot,
-  PinnedTerm,
   Project,
   TermInfo,
   Ticket,
@@ -30,7 +29,6 @@ export type {
   TermInfo,
   FileStat,
   ActivityEvent,
-  PinnedTerm,
   Ticket,
   Toast,
   ToastLevel,
@@ -38,6 +36,63 @@ export type {
   ServerEvent,
 };
 export { AGENT_TERM_ID };
+
+// ── Sidebar de terminales/agentes ────────────────────────────────
+// Overlay izquierdo con el agente y las consolas. Estado persistido en
+// localStorage y compartido por el Sidebar (UI) y el NodeMap (inset del fitView).
+
+export interface SidebarState {
+  collapsed: boolean;
+  /** Ancho en px cuando está expandido. */
+  width: number;
+}
+
+const SIDEBAR_KEY = 'agent-p:sidebar:v2';
+
+function defaultSidebarWidth(): number {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  return Math.min(820, Math.max(320, Math.round(vw * 0.3)));
+}
+
+function loadSidebar(): SidebarState {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_KEY);
+    if (raw) {
+      const s = JSON.parse(raw) as Partial<SidebarState>;
+      return {
+        collapsed: !!s.collapsed,
+        width: typeof s.width === 'number' ? s.width : defaultSidebarWidth(),
+      };
+    }
+  } catch {}
+  return { collapsed: false, width: defaultSidebarWidth() };
+}
+
+// ── Configuración del Mapa Táctico ───────────────────────────────
+// Persistida en localStorage y compartida por el StatusBar (controles) y el
+// NodeMap (render). `pattern` = fondo del lienzo; `mode` = normal | dev.
+
+export type BgPattern =
+  | 'dots' | 'lines' | 'cross' | 'dashedgrid' | 'circuit' | 'diagonal' | 'zigzag' | 'none';
+export type MapMode = 'normal' | 'dev';
+
+export interface MapConfig {
+  pattern: BgPattern;
+  mode: MapMode;
+}
+
+const MAP_CONFIG_KEY = 'map-bg-config';
+
+function loadMapConfig(): MapConfig {
+  try {
+    const raw = localStorage.getItem(MAP_CONFIG_KEY);
+    if (raw) {
+      const cfg = JSON.parse(raw) as Partial<MapConfig>;
+      return { pattern: cfg.pattern ?? 'dots', mode: cfg.mode ?? 'normal' };
+    }
+  } catch {}
+  return { pattern: 'dots', mode: 'normal' };
+}
 
 // ── Estado interno del store ─────────────────────────────────────
 
@@ -57,8 +112,7 @@ interface AppState {
   ticketsModalOpen: boolean;
   terminals: Record<string, TermInfo[]>;
   focusedTermId: string;
-  pinnedTerms: Record<string, PinnedTerm[]>;
-  pinnedFocus: { termId: string; seq: number } | null;
+  sidebar: SidebarState;
   expandedDirs: Record<string, string[]>;
   fileAlerts: Record<string, Record<string, { stamp: number; op: string }>>;
   treeVersion: Record<string, number>;
@@ -66,6 +120,7 @@ interface AppState {
   terminalModalOpen: boolean;
   searchOpen: boolean;
   contentSearchOpen: boolean;
+  mapConfig: MapConfig;
 
   setProjects: (projects: Project[]) => void;
   upsertProject: (project: Project) => void;
@@ -82,17 +137,15 @@ interface AppState {
   setTicketsModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
-  pinTerm: (projectId: string, termId: string) => void;
-  unpinTerm: (projectId: string, termId: string) => void;
-  updatePinned: (projectId: string, termId: string, patch: Partial<PinnedTerm>) => void;
-  focusPinned: (termId: string) => void;
+  setSidebar: (partial: Partial<SidebarState>) => void;
   toggleDir: (projectId: string, path: string) => void;
+  expandDirs: (projectId: string, paths: string[]) => void;
   clearFileAlert: (projectId: string, path: string) => void;
   setSelectedFile: (path: string | null) => void;
   setTerminalModalOpen: (open: boolean) => void;
-  openTerminal: (termId: string) => void;
   setSearchOpen: (open: boolean) => void;
   setContentSearchOpen: (open: boolean) => void;
+  setMapConfig: (partial: Partial<MapConfig>) => void;
   pushToast: (toast: Toast) => void;
   handleServerEvent: (evt: ServerEvent) => void;
 }
@@ -127,8 +180,7 @@ export const useStore = create<AppState>((set, get) => ({
   ticketsModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
-  pinnedTerms: storageService.loadPinnedTerms(),
-  pinnedFocus: null,
+  sidebar: loadSidebar(),
   expandedDirs: {},
   fileAlerts: {},
   treeVersion: {},
@@ -136,6 +188,7 @@ export const useStore = create<AppState>((set, get) => ({
   terminalModalOpen: false,
   searchOpen: false,
   contentSearchOpen: false,
+  mapConfig: loadMapConfig(),
 
   setProjects: (projects) =>
     set((s) => ({
@@ -206,47 +259,30 @@ export const useStore = create<AppState>((set, get) => ({
 
   focusTerm: (focusedTermId) => set({ focusedTermId }),
 
-  pinTerm: (projectId, termId) =>
+  setSidebar: (partial) =>
     set((s) => {
-      const list = s.pinnedTerms[projectId] ?? [];
-      if (list.some((p) => p.termId === termId)) {
-        // Ya anclada: solo la enfocamos.
-        return { pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };
-      }
-      const n = list.length;
-      const pin: PinnedTerm = { termId, x: 300 + n * 48, y: 24 + n * 48, w: 880, h: 520 };
-      const pinnedTerms = { ...s.pinnedTerms, [projectId]: [...list, pin] };
-      storageService.savePinnedTerms(pinnedTerms);
-      return { pinnedTerms, pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } };
+      const next = { ...s.sidebar, ...partial };
+      try {
+        localStorage.setItem(SIDEBAR_KEY, JSON.stringify(next));
+      } catch {}
+      return { sidebar: next };
     }),
-
-  unpinTerm: (projectId, termId) =>
-    set((s) => {
-      const list = s.pinnedTerms[projectId];
-      if (!list?.some((p) => p.termId === termId)) return s;
-      const pinnedTerms = { ...s.pinnedTerms, [projectId]: list.filter((p) => p.termId !== termId) };
-      storageService.savePinnedTerms(pinnedTerms);
-      return { pinnedTerms };
-    }),
-
-  updatePinned: (projectId, termId, patch) =>
-    set((s) => {
-      const list = s.pinnedTerms[projectId];
-      if (!list) return s;
-      const next = list.map((p) => (p.termId === termId ? { ...p, ...patch } : p));
-      const pinnedTerms = { ...s.pinnedTerms, [projectId]: next };
-      storageService.savePinnedTerms(pinnedTerms);
-      return { pinnedTerms };
-    }),
-
-  focusPinned: (termId) =>
-    set((s) => ({ pinnedFocus: { termId, seq: (s.pinnedFocus?.seq ?? 0) + 1 } })),
 
   toggleDir: (projectId, path) =>
     set((s) => {
       const open = s.expandedDirs[projectId] ?? [];
       const next = open.includes(path) ? open.filter((p) => p !== path) : [...open, path];
       return { expandedDirs: { ...s.expandedDirs, [projectId]: next } };
+    }),
+
+  // Asegura que un conjunto de carpetas quede expandido (unión, sin colapsar).
+  // Lo usa el modo "dev" para abrir la ruta hasta cada archivo modificado.
+  expandDirs: (projectId, paths) =>
+    set((s) => {
+      const open = s.expandedDirs[projectId] ?? [];
+      const missing = paths.filter((p) => !open.includes(p));
+      if (missing.length === 0) return s;
+      return { expandedDirs: { ...s.expandedDirs, [projectId]: [...open, ...missing] } };
     }),
 
   clearFileAlert: (projectId, path) =>
@@ -261,21 +297,18 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTerminalModalOpen: (terminalModalOpen) => set({ terminalModalOpen }),
 
-  // Abre una consola: si está anclada al tablero, centra su nodo; si no, la
-  // enfoca en el modal. Lógica de UI compartida por la Toolbar y los atajos.
-  openTerminal: (termId) => {
-    const s = get();
-    const pid = s.focusedId;
-    if (pid && s.pinnedTerms[pid]?.some((p) => p.termId === termId)) {
-      get().focusPinned(termId);
-      return;
-    }
-    set({ focusedTermId: termId, terminalModalOpen: true });
-  },
-
   setSearchOpen: (searchOpen) => set({ searchOpen }),
 
   setContentSearchOpen: (contentSearchOpen) => set({ contentSearchOpen }),
+
+  setMapConfig: (partial) =>
+    set((s) => {
+      const next = { ...s.mapConfig, ...partial };
+      try {
+        localStorage.setItem(MAP_CONFIG_KEY, JSON.stringify(next));
+      } catch {}
+      return { mapConfig: next };
+    }),
 
   pushToast: ({ level, title, message, projectId }) => {
     const fn = SILEO_BY_LEVEL[level];
@@ -371,20 +404,7 @@ export const useStore = create<AppState>((set, get) => ({
             !running && s.focusedId === projectId && s.focusedTermId === termId
               ? { focusedTermId: AGENT_TERM_ID }
               : {};
-          // Si la sesión terminó, desanclar su nodo del tablero.
-          let pinnedFix = {};
-          if (!running) {
-            const list = s.pinnedTerms[projectId];
-            if (list?.some((p) => p.termId === termId)) {
-              const pinnedTerms = {
-                ...s.pinnedTerms,
-                [projectId]: list.filter((p) => p.termId !== termId),
-              };
-              storageService.savePinnedTerms(pinnedTerms);
-              pinnedFix = { pinnedTerms };
-            }
-          }
-          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix, ...pinnedFix };
+          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix };
         });
 
         if (termId === AGENT_TERM_ID) {

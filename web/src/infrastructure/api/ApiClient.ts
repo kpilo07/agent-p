@@ -207,10 +207,12 @@ class ApiClient implements IApiRepository {
     return this.request(`/api/projects/${id}/terminals`);
   }
 
-  createTerminal(id: string, title?: string): Promise<TermInfo> {
+  // kind 'agent' lanza un PTY extra corriendo el CLICommand del proyecto; por
+  // defecto (omitido o 'shell') abre un shell.
+  createTerminal(id: string, opts?: { title?: string; kind?: 'shell' | 'agent' }): Promise<TermInfo> {
     return this.request(`/api/projects/${id}/terminals`, {
       method: 'POST',
-      body: JSON.stringify({ title: title ?? '' }),
+      body: JSON.stringify({ title: opts?.title ?? '', kind: opts?.kind ?? 'shell' }),
     });
   }
 

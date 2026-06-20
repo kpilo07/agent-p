@@ -214,16 +214,26 @@ func (s *ProjectService) ListTerminals(projectID string) []domain.TermInfo {
 	return s.terminal.ListTerminals(projectID)
 }
 
-func (s *ProjectService) CreateTerminal(ctx context.Context, projectID, title string) (domain.TermInfo, error) {
+// CreateTerminal abre un PTY adicional. kind == "agent" lanza el CLICommand del
+// proyecto (un agente extra, con su propio termID); cualquier otro valor abre un
+// shell. El agente principal sigue siendo el singleton domain.AgentTermID.
+func (s *ProjectService) CreateTerminal(ctx context.Context, projectID, title, kind string) (domain.TermInfo, error) {
 	p, err := s.projects.GetProject(ctx, projectID)
 	if err != nil {
 		return domain.TermInfo{}, err
+	}
+	command := ""
+	if kind == "agent" {
+		command = p.CLICommand
+		if title == "" {
+			title = "Agent"
+		}
 	}
 	if title == "" {
 		title = "Shell"
 	}
 	termID := s.terminal.NewTermID()
-	if err := s.terminal.Start(p.ID, termID, title, p.Path, ""); err != nil {
+	if err := s.terminal.Start(p.ID, termID, title, p.Path, command); err != nil {
 		return domain.TermInfo{}, err
 	}
 	return domain.TermInfo{ID: termID, Title: title, Running: true}, nil

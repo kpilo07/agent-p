@@ -191,9 +191,10 @@ export function TicketModal() {
             upsertLocal(updated);
             setSelected(updated);
             toast('info', 'Ticket', `Launched to the agent · following in console`);
-            // Cerrar el panel y abrir la consola del agente para seguimiento.
+            // Cerrar el panel y enfocar la consola del agente (sidebar) para seguimiento.
             requestClose();
-            useStore.getState().openTerminal(AGENT_TERM_ID);
+            useStore.getState().focusTerm(AGENT_TERM_ID);
+            useStore.getState().setSidebar({ collapsed: false });
           } catch (err) {
             toast('error', 'Launch', (err as Error).message);
           } finally {

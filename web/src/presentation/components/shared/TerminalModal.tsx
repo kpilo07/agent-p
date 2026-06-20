@@ -1,28 +1,20 @@
-// Consola como herramienta: cada terminal vive en su modal. Se abre desde el
-// grupo de consolas de la Toolbar y muestra ÚNICAMENTE la terminal
-// seleccionada (focusedTermId); el PTY sigue vivo en el backend y el
-// scrollback se repinta vía replay al abrir.
-//
-// Desde aquí se puede ANCLAR la terminal al Mapa Táctico (vive como nodo en el
-// tablero en vez de en el modal). El render de la terminal (TerminalView) está
-// desacoplado de la sesión, así que anclar = montar el mismo (projectId, termId)
-// en otro contenedor sin perder nada.
-import { useEffect } from 'react';
-
+// Consola maximizada: muestra la terminal enfocada (focusedTermId) a pantalla
+// grande cuando hace falta más espacio que el sidebar. Se abre desde el botón
+// "maximizar" de cada panel del sidebar. El PTY sigue vivo en el backend y el
+// scrollback se repinta vía replay al montar TerminalView, así que la misma
+// (projectId, termId) puede vivir en el sidebar y en el modal sin perder nada.
 import { apiClient as api } from '../../../infrastructure/api/ApiClient';
 import {
   AGENT_TERM_ID,
   selectFocusedProject,
   useStore,
-  type PinnedTerm,
   type TermInfo,
 } from '../../../infrastructure/store/store';
 import { ModalShell } from '../ui/ModalShell';
 import { TerminalView } from './TerminalView';
-import { IconClose, IconPin, IconTerminal, IconTrash } from '../ui/icons';
+import { IconClose, IconTerminal, IconTrash } from '../ui/icons';
 
 const NO_TERMS: TermInfo[] = [];
-const NO_PINS: PinnedTerm[] = [];
 
 export function TerminalModal() {
   const focused = useStore(selectFocusedProject);
@@ -30,34 +22,18 @@ export function TerminalModal() {
   const terminals = useStore((s) =>
     focused ? (s.terminals[focused.id] ?? NO_TERMS) : NO_TERMS,
   );
-  const pinned = useStore((s) => (focused ? (s.pinnedTerms[focused.id] ?? NO_PINS) : NO_PINS));
 
-  // El modal muestra SIEMPRE la terminal enfocada. No caemos al agente cuando la
-  // enfocada aún no está en la lista: una terminal recién creada se enfoca antes
-  // de que llegue su session_state por WS, y caer al agente la duplicaría (se vería
-  // el agente en el modal y, si está anclado, también en el tablero). El backend
-  // hace replay en cuanto el PTY está listo; y el cierre de un shell ya redirige el
-  // foco al agente en el store (focusFix), así que aquí no hace falta ese fallback.
+  // El modal muestra SIEMPRE la terminal enfocada. El backend hace replay en
+  // cuanto el PTY está listo; y el cierre de un shell ya redirige el foco al
+  // agente en el store (focusFix), así que aquí no hace falta fallback.
   const termId = focusedTermId;
 
-  // Invariante: una terminal vive en UN solo sitio. Si la enfocada está anclada al
-  // tablero, no la duplicamos en el modal — lo cerramos y dejamos su nodo.
-  const isPinnedHere = pinned.some((p) => p.termId === termId);
-  useEffect(() => {
-    if (isPinnedHere) useStore.getState().setTerminalModalOpen(false);
-  }, [isPinnedHere]);
-
-  if (!focused || isPinnedHere) return null;
+  if (!focused) return null;
 
   const isAgent = termId === AGENT_TERM_ID;
   const title = isAgent
     ? focused.cliCommand || 'Agent'
     : (terminals.find((t) => t.id === termId)?.title ?? termId);
-
-  const pinToBoard = () => {
-    useStore.getState().pinTerm(focused.id, termId);
-    useStore.getState().setTerminalModalOpen(false);
-  };
 
   const closeShell = async () => {
     try {
@@ -85,13 +61,6 @@ export function TerminalModal() {
               <span className="hud-label truncate">· {focused.name}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
-                onClick={pinToBoard}
-                title="Pin to board (Tactical Map)"
-              >
-                <IconPin className="h-3.5 w-3.5" />
-              </button>
               {!isAgent && (
                 <button
                   className="btn-tactical btn-tactical--danger flex items-center justify-center p-1.5"

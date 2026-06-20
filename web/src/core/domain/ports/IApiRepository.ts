@@ -69,7 +69,7 @@ export interface IApiRepository {
 
   // Terminales
   listTerminals(id: string): Promise<TermInfo[]>;
-  createTerminal(id: string, title?: string): Promise<TermInfo>;
+  createTerminal(id: string, opts?: { title?: string; kind?: 'shell' | 'agent' }): Promise<TermInfo>;
   closeTerminal(id: string, termId: string): Promise<void>;
 
   // Explorador de filesystem

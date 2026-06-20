@@ -10,6 +10,7 @@ import { useGit } from '../../hooks/useGit';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { SyncControl } from '../shared/SyncControl';
 import { IconBell, IconChevronDown, IconLogo, IconLogout } from '../ui/icons';
+import { BG_PATTERNS } from './mapConfig';
 
 const WS_STATUS_STYLE = {
   open: { cls: 'notification-pulse--green', label: 'LINK ACTIVE' },
@@ -23,8 +24,14 @@ export function StatusBar() {
   const projects = useStore((s) => s.projects);
   const activeIds = useStore((s) => s.activeIds);
   const unread = useStore((s) => s.unread);
+  const mapConfig = useStore((s) => s.mapConfig);
+  const setMapConfig = useStore((s) => s.setMapConfig);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bgMenuOpen, setBgMenuOpen] = useState(false);
+
+  const devMode = mapConfig.mode === 'dev';
+  const currentBg = BG_PATTERNS.find((p) => p.id === mapConfig.pattern) ?? BG_PATTERNS[0];
 
   const git = useGit(focused?.id ?? null);
   const branch = git?.branch;
@@ -71,6 +78,70 @@ export function StatusBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-4">
+        {/* Controles del Mapa Táctico: modo (switch) y fondo (dropdown) */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={devMode}
+          className="flex items-center gap-1.5 text-muted transition-colors hover:text-gold"
+          onClick={() => setMapConfig({ mode: devMode ? 'normal' : 'dev' })}
+          title="Dev mode: árbol fantasma, solo resaltan los archivos modificados"
+        >
+          <span className={`hud-label ${devMode ? '!text-gold' : ''}`}>DEV</span>
+          <span className={`map-switch ${devMode ? 'map-switch--on' : ''}`}>
+            <span className="map-switch__knob" />
+          </span>
+        </button>
+
+        <div className="relative">
+          <button
+            className={`hud-label flex cursor-pointer items-center gap-1.5 transition-colors hover:!text-[var(--text-primary)] ${
+              bgMenuOpen ? '!text-[var(--text-primary)]' : ''
+            }`}
+            onClick={() => setBgMenuOpen((o) => !o)}
+            title="Map background"
+          >
+            <span className="text-[12px] leading-none">{currentBg.icon}</span>
+            <span className="hud-value">{currentBg.label}</span>
+            <IconChevronDown
+              className={`h-3 w-3 transition-transform duration-200 ${bgMenuOpen ? '' : 'rotate-180'}`}
+            />
+          </button>
+
+          {bgMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setBgMenuOpen(false)} />
+              <div className="gotham-enter absolute right-0 bottom-7 z-50 w-44 overflow-hidden rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] py-1">
+                {BG_PATTERNS.map((p) => {
+                  const active = p.id === mapConfig.pattern;
+                  return (
+                    <button
+                      key={p.id}
+                      className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-1.5 text-left transition-colors hover:bg-[var(--hover-accent)] ${
+                        active ? 'bg-[var(--hover-accent)]' : ''
+                      }`}
+                      onClick={() => {
+                        setMapConfig({ pattern: p.id });
+                        setBgMenuOpen(false);
+                      }}
+                    >
+                      <span className="w-4 shrink-0 text-center text-[13px] leading-none">{p.icon}</span>
+                      <span
+                        className={`hud-value min-w-0 flex-1 truncate ${
+                          active ? '' : '!text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {p.label}
+                      </span>
+                      {active && <span className="hud-label shrink-0">on</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Notificaciones pendientes: clic → panel de proyectos */}
         <button
           className={`flex items-center gap-1.5 transition-colors ${

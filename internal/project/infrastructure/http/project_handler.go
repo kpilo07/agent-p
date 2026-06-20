@@ -133,12 +133,13 @@ func (s *Server) handleCreateTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Title string `json:"title"`
+		Kind  string `json:"kind"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Title == "" {
+	if req.Title == "" && req.Kind != "agent" {
 		req.Title = fmt.Sprintf("Shell %d", len(s.uc.ListTerminals(p.ID)))
 	}
-	term, err := s.uc.CreateTerminal(r.Context(), p.ID, req.Title)
+	term, err := s.uc.CreateTerminal(r.Context(), p.ID, req.Title, req.Kind)
 	if err != nil {
 		s.fail(w, err, http.StatusInternalServerError)
 		return

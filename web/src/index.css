@@ -482,6 +482,22 @@ html, body, #root {
 }
 .map-node--activity--new { animation: map-node-activity-new 1.6s ease-in-out infinite; }
 
+/* Modo dev: nodo "fantasma". Sin color de tipo (grayscale), casi transparente
+   y fondo vacío → el árbol se percibe como un esqueleto auto-generado donde
+   solo resaltan los archivos modificados (que NO llevan esta clase). */
+.map-node--ghost {
+  opacity: 0.24;
+  filter: grayscale(1);
+  background: transparent;
+  border-color: var(--border-primary);
+}
+.map-node--ghost:hover {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+  background: var(--bg-tertiary);
+  transform: none;
+}
+
 .map-node__badge {
   margin-left: auto;
   flex-shrink: 0;
@@ -494,96 +510,36 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Menú de configuración de fondo del mapa ── */
+/* ── Switch del modo del mapa (StatusBar) ── */
 
-/* Botón disparador: reemplaza la etiqueta "Mapa táctico" */
-.map-bg-trigger {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid #2e2e2e;
-  background: rgba(0, 0, 0, 0.75);
-  font-family: var(--font-hud);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-.map-bg-trigger:hover,
-.map-bg-trigger--open {
-  border-color: rgba(80, 227, 194, 0.35);
-  color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.88);
-}
-
-/* Popover del menú */
-.map-bg-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 100;
-  min-width: 220px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-active);
-  background: var(--bg-secondary);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: gotham-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.map-bg-menu__section {
-  margin: 0;
-  font-family: var(--font-hud);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/* Grid para los patrones: 4 columnas */
-.map-bg-menu__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-}
-
-.map-bg-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: var(--font-hud);
-  font-size: 10px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-.map-bg-option:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-.map-bg-option--active {
-  border-color: rgba(80, 227, 194, 0.4);
-  background: rgba(80, 227, 194, 0.07);
-  color: var(--cyan-primary);
-}
-
-.map-bg-option__icon {
-  font-size: 13px;
-  line-height: 1;
-  width: 16px;
-  text-align: center;
+.map-switch {
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 12px;
   flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid #3a3a3a;
+  background: var(--bg-tertiary);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.map-switch__knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.map-switch--on {
+  background: rgba(80, 227, 194, 0.25);
+  border-color: rgba(80, 227, 194, 0.6);
+}
+.map-switch--on .map-switch__knob {
+  transform: translateX(12px);
+  background: var(--cyan-primary);
 }
 
 /* Cuadrícula degradada: líneas punteadas con fade radial desde el centro */
@@ -1005,36 +961,97 @@ html, body, #root {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TERMINAL NODE — terminal anclada como nodo del Mapa Táctico
+   SIDEBAR — overlay izquierdo con el agente y las consolas
    ═══════════════════════════════════════════════════════════════ */
-.map-term-node {
+.sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  height: 100%;
-  /* Sin overflow:hidden — recortaría los handles del NodeResizer, que se
-     montan sobre el borde. El redondeo se aplica en cabecera y cuerpo. */
-  border: 1px solid var(--border-active);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  min-height: 0;
+  /* Minimalista: solo un borde fino a la derecha como separación del tablero. */
+  border-right: 1px solid var(--border-primary);
+  /* Translúcido: deja intuir el tablero detrás; el blur mantiene la legibilidad. */
+  background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
 }
 
-.map-term-node__header {
+.sidebar__header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
-  padding: 5px 8px 5px 10px;
-  border-bottom: 1px solid var(--border-secondary);
-  background: rgba(0, 0, 0, 0.4);
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  cursor: grab;
+  padding: 6px 6px 6px 10px;
+  background: rgba(0, 0, 0, 0.35);
 }
-.map-term-node__header:active { cursor: grabbing; }
 
-.map-term-node__btn {
+.sidebar__list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.sidebar__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+/* Borde derecho arrastrable para cambiar el ancho. */
+.sidebar__resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+.sidebar__resize:hover { background: rgba(80, 227, 194, 0.25); }
+
+/* Cada panel ocupa una fracción (flex-grow) del alto disponible. Los paneles
+   van pegados, sin bordes ni redondeo: el único separador es la franja de
+   cabecera (fondo) de cada terminal. */
+.sidebar-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 56px;
+}
+
+.sidebar-pane__inner {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  overflow: hidden;
+}
+/* Activo: acento fino a la izquierda, sin borde alrededor. */
+.sidebar-pane__inner--active { box-shadow: inset 2px 0 0 var(--cyan-primary); }
+
+.sidebar-pane__header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 4px 6px 4px 9px;
+  background: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.sidebar-pane__btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1045,42 +1062,92 @@ html, body, #root {
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
 }
-.map-term-node__btn:hover { color: var(--cyan-primary); background: var(--hover-accent); }
-.map-term-node__btn--danger:hover { color: var(--alert-red); }
+.sidebar-pane__btn:hover { color: var(--cyan-primary); background: var(--hover-accent); }
+.sidebar-pane__btn--danger:hover { color: var(--alert-red); }
 
-.map-term-node__body {
+.sidebar-pane__body {
   position: relative;
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
 }
 
-/* Borde/handles del NodeResizer. Discretos pero SIEMPRE visibles para que se
-   descubran y se puedan agarrar; se intensifican al pasar el ratón. z-index
-   alto para quedar SOBRE la cabecera y el xterm (hermanos que se pintan
-   después) y poder agarrarse en cualquier borde, incluido el ancho. */
-.map-term-node__resize-line {
-  border-color: var(--border-active) !important;
-  border-width: 2px !important;
-  opacity: 0.35;
-  z-index: 10;
-  transition: opacity 0.15s ease;
+.sidebar-pane__maximized {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
-.map-term-node:hover .map-term-node__resize-line { opacity: 0.9; }
-.map-term-node__resize-handle {
-  width: 11px !important;
-  height: 11px !important;
-  border-radius: 3px !important;
-  background: var(--cyan-primary) !important;
-  border: 1.5px solid var(--bg-secondary) !important;
-  opacity: 0.55;
-  z-index: 11;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+.sidebar-pane__maximized:hover { color: var(--cyan-primary); }
+
+/* Divisor: franja agarrable invisible que cabalga el límite entre paneles; sin
+   separación visible salvo una guía fina al pasar el ratón. */
+.sidebar-divider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  transform: translateY(50%);
+  cursor: row-resize;
+  z-index: 6;
 }
-.map-term-node:hover .map-term-node__resize-handle { opacity: 1; }
-.map-term-node__resize-handle:hover { transform: scale(1.25); }
+.sidebar-divider::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.sidebar-divider:hover::after { background: var(--cyan-primary); }
+
+/* Riel colapsado: también minimalista, solo borde derecho. */
+.sidebar-rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border-right: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
+  backdrop-filter: blur(10px);
+}
+.sidebar-rail__count {
+  margin-top: 2px;
+  font-family: var(--font-hud);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* Botón de icono compartido en cabecera y riel. */
+.sidebar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 5px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.sidebar-icon-btn:hover { color: var(--gold-primary); background: var(--hover-accent); }
 
 /* ═══════════════════════════════════════════════════════════════
    DIFF VIEWER — vista estilo editor con gutters de nº de línea

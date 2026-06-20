@@ -15,14 +15,12 @@ import {
   Controls,
   Handle,
   MiniMap,
-  NodeResizer,
   Panel,
   Position,
   ReactFlow,
   useReactFlow,
   type Edge,
   type Node,
-  type NodeChange,
   type NodeProps,
   type NodeTypes,
 } from '@xyflow/react';
@@ -35,14 +33,12 @@ import type { DiffRow } from '../../../core/domain/diff';
 
 const parseDiff = (diff: string) => diffService.parseDiff(diff);
 import {
-  AGENT_TERM_ID,
   selectFocusedProject,
   useStore,
+  type BgPattern,
   type FileStat,
-  type PinnedTerm,
 } from '../../../infrastructure/store/store';
 import { DiffRows } from '../shared/DiffView';
-import { TerminalView } from '../shared/TerminalView';
 import {
   IconChevronDown,
   IconChevronRight,
@@ -52,35 +48,14 @@ import {
   IconImage,
   IconFolder,
   IconFolderOpen,
-  IconPinOff,
-  IconSettings,
   IconRefresh,
-  IconTerminal,
-  IconTrash,
 } from '../ui/icons';
 import { AgentLogo } from '../ui/AgentLogo';
 
-// ── Configuración de fondo del mapa ─────────────────────────────
-
-type BgPattern = 'dots' | 'lines' | 'cross' | 'dashedgrid' | 'circuit' | 'diagonal' | 'zigzag' | 'none';
-
-interface BgConfig {
-  pattern: BgPattern;
-}
-
-const BG_STORAGE_KEY = 'map-bg-config';
-
-const BG_PATTERNS: { id: BgPattern; label: string; icon: string }[] = [
-  { id: 'dots',      label: 'Dots',         icon: '·' },
-  { id: 'lines',     label: 'Lines',        icon: '≡' },
-  { id: 'cross',     label: 'Cross',        icon: '⊞' },
-  { id: 'dashedgrid',label: 'Grid',         icon: '⬚' },
-  { id: 'circuit',   label: 'Circuit',      icon: '⊙' },
-  { id: 'diagonal',  label: 'Diagonal',     icon: '⤢' },
-  { id: 'zigzag',    label: 'Zigzag',       icon: '∿' },
-  { id: 'none',      label: 'Clean',        icon: '□' },
-];
-
+// El fondo y el modo del mapa se controlan desde el StatusBar y viven en el
+// store (mapConfig). Aquí solo se consume para renderizar. El catálogo de
+// fondos (BG_PATTERNS) está en ./mapConfig; el mapeo a la variante de React
+// Flow vive aquí para no arrastrar @xyflow al bundle principal.
 const BG_VARIANT_MAP: Record<BgPattern, BackgroundVariant | null> = {
   dots:       BackgroundVariant.Dots,
   lines:      BackgroundVariant.Lines,
@@ -91,18 +66,6 @@ const BG_VARIANT_MAP: Record<BgPattern, BackgroundVariant | null> = {
   zigzag:     null,
   none:       null,
 };
-
-function loadBgConfig(): BgConfig {
-  try {
-    const raw = localStorage.getItem(BG_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as BgConfig;
-  } catch {}
-  return { pattern: 'dots' };
-}
-
-function saveBgConfig(cfg: BgConfig) {
-  try { localStorage.setItem(BG_STORAGE_KEY, JSON.stringify(cfg)); } catch {}
-}
 
 // ── Datos de cada nodo del mapa ─────────────────────────────────
 
@@ -125,6 +88,9 @@ interface MapNodeData extends Record<string, unknown> {
   /** Carpeta con actividad de CREACIÓN en su subárbol. */
   activityNew?: boolean;
   stat?: FileStat;
+  /** Modo dev: nodo "fantasma" (atenuado, sin color) por no estar en una ruta
+   *  con cambios. Los nodos modificados y sus ancestros NO llevan esta marca. */
+  ghost?: boolean;
 }
 
 type MapNode = Node<MapNodeData>;
@@ -151,12 +117,29 @@ function hotPaths(paths: Iterable<string>): Set<string> {
   return hot;
 }
 
+/** Carpetas ancestro de cada archivo (sin incluir el propio archivo ni la raíz).
+ *  El modo dev las expande para revelar la ruta hasta cada cambio. */
+function ancestorDirs(paths: Iterable<string>): Set<string> {
+  const dirs = new Set<string>();
+  for (const path of paths) {
+    let i = path.lastIndexOf('/');
+    let p = i >= 0 ? path.slice(0, i) : '';
+    while (p !== '') {
+      dirs.add(p);
+      i = p.lastIndexOf('/');
+      p = i >= 0 ? p.slice(0, i) : '';
+    }
+  }
+  return dirs;
+}
+
 function buildGraph(
   tree: TreeNode,
   projectName: string,
   expanded: string[],
   alerts: Record<string, { stamp: number; op: string }>,
   gitByPath: Map<string, FileStat>,
+  devMode: boolean,
 ): { nodes: MapNode[]; edges: Edge[] } {
   const nodes: MapNode[] = [];
   const edges: Edge[] = [];
@@ -202,6 +185,11 @@ function buildGraph(
       stat?.status === 'A';
     const isDeleted = stat?.status?.includes('D') ?? false;
 
+    // Modo dev: el nodo es "fantasma" salvo que esté en una ruta con cambios
+    // (él mismo modificado o ancestro de un archivo modificado). La raíz nunca
+    // se atenúa: es el ancla visual del árbol.
+    const ghost = devMode && !isRoot && !hot.has(n.path);
+
     nodes.push({
       id,
       type: 'repo',
@@ -222,6 +210,7 @@ function buildGraph(
         activity: isRoot ? hot.size > 0 : n.dir && hot.has(n.path) && !hotNew.has(n.path),
         activityNew: isRoot ? newFilePaths.size > 0 : n.dir && hotNew.has(n.path),
         stat,
+        ghost,
       },
     });
 
@@ -238,7 +227,7 @@ function buildGraph(
           ? { stroke: 'var(--alert-green)', strokeWidth: 1.6, strokeOpacity: 0.9 }
           : isHot
             ? { stroke: 'var(--alert-orange)', strokeWidth: 1.6, strokeOpacity: 0.9 }
-            : { stroke: 'var(--gold-dim)', strokeOpacity: 0.45 },
+            : { stroke: 'var(--gold-dim)', strokeOpacity: devMode ? 0.12 : 0.45 },
       });
     }
     return y;
@@ -342,6 +331,8 @@ function RepoNode({ data }: NodeProps<MapNode>) {
     !data.isNew && !data.isDeleted && data.stat ? 'map-node--mod' : '',
     // Pulso de borde: verde para nuevos, naranja para modificados
     data.activityNew ? 'map-node--activity--new' : data.activity || data.alert ? 'map-node--activity' : '',
+    // Modo dev: nodo fantasma (atenuado y sin color de tipo)
+    data.ghost ? 'map-node--ghost' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -392,97 +383,13 @@ function RepoNode({ data }: NodeProps<MapNode>) {
   );
 }
 
-// ── Nodo terminal anclado ───────────────────────────────────────
+const nodeTypes: NodeTypes = { repo: RepoNode };
 
-interface TermNodeData extends Record<string, unknown> {
-  projectId: string;
-  termId: string;
-  title: string;
-}
+// Padding por lado para fitView (valores px como string, lo acepta React Flow).
+type FitPadding = { top: `${number}px`; right: `${number}px`; bottom: `${number}px`; left: `${number}px` };
 
-type TermNode = Node<TermNodeData>;
-
-function TerminalNode({ data }: NodeProps<TermNode>) {
-  const { projectId, termId, title } = data;
-  const isAgent = termId === AGENT_TERM_ID;
-
-  const popOut = () => {
-    useStore.getState().unpinTerm(projectId, termId);
-    useStore.getState().focusTerm(termId);
-    useStore.getState().setTerminalModalOpen(true);
-  };
-
-  const closeShell = async () => {
-    try {
-      await api.closeTerminal(projectId, termId);
-    } catch (err) {
-      useStore.getState().pushToast({ level: 'error', title: 'Terminal', message: (err as Error).message });
-    }
-  };
-
-  return (
-    <div className="map-term-node">
-      <NodeResizer
-        minWidth={360}
-        minHeight={220}
-        maxWidth={1200}
-        maxHeight={820}
-        isVisible
-        lineClassName="map-term-node__resize-line"
-        handleClassName="map-term-node__resize-handle"
-      />
-      <Handle type="target" position={Position.Left} className="map-handle" />
-
-      {/* Cabecera: zona de arrastre (sin nodrag) + botones (con nodrag) */}
-      <div className="map-term-node__header">
-        <IconTerminal className="h-3.5 w-3.5 shrink-0 text-gold" />
-        <span className="hud-label shrink-0">{isAgent ? 'Agent' : 'Shell'}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-secondary">{title}</span>
-        <button
-          className="nodrag map-term-node__btn"
-          onClick={popOut}
-          title="Return to window (unpin)"
-        >
-          <IconPinOff className="h-3.5 w-3.5" />
-        </button>
-        {!isAgent && (
-          <button
-            className="nodrag map-term-node__btn map-term-node__btn--danger"
-            onClick={closeShell}
-            title="Close this shell"
-          >
-            <IconTrash className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* Cuerpo: nodrag (selección de texto) + nowheel (scroll del xterm) */}
-      <div className="nodrag nowheel map-term-node__body">
-        <TerminalView projectId={projectId} termId={termId} fontSize={11} />
-      </div>
-    </div>
-  );
-}
-
-const nodeTypes: NodeTypes = { repo: RepoNode, terminal: TerminalNode };
-
-// Centra la cámara sobre una terminal anclada cuando cambia la señal de foco.
-// Debe vivir DENTRO de <ReactFlow> para acceder a su instancia.
-function PinnedFocuser({ projectId }: { projectId: string }) {
-  const rf = useReactFlow();
-  const focus = useStore((s) => s.pinnedFocus);
-  const pinned = useStore((s) => s.pinnedTerms[projectId]);
-
-  useEffect(() => {
-    if (!focus) return;
-    const p = pinned?.find((x) => x.termId === focus.termId);
-    if (!p) return;
-    rf.setCenter(p.x + p.w / 2, p.y + p.h / 2, { zoom: 1, duration: 600 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus?.seq]);
-
-  return null;
-}
+// Hueco fijo alrededor del encuadre; al izquierdo se le suma el ancho del sidebar.
+const FIT_GAP = 32;
 
 // AutoFitter mantiene el mapa encuadrado cuando la ESTRUCTURA del árbol cambia
 // (se añaden/quitan nodos por fs_change). Sin esto, como React Flow solo encuadra
@@ -493,9 +400,12 @@ function PinnedFocuser({ projectId }: { projectId: string }) {
 function AutoFitter({
   structureKey,
   userMovedRef,
+  padding,
 }: {
   structureKey: string;
   userMovedRef: React.RefObject<boolean>;
+  /** Padding por lado del fitView; el lado izquierdo deja hueco al sidebar. */
+  padding: FitPadding;
 }) {
   const rf = useReactFlow();
   const first = useRef(true);
@@ -507,9 +417,9 @@ function AutoFitter({
       return;
     }
     if (userMovedRef.current) return; // el usuario tomó el control de la cámara
-    const t = setTimeout(() => rf.fitView({ padding: 0.15, duration: 400 }), 250);
+    const t = setTimeout(() => rf.fitView({ padding, duration: 400 }), 250);
     return () => clearTimeout(t);
-  }, [structureKey, rf, userMovedRef]);
+  }, [structureKey, rf, userMovedRef, padding]);
 
   return null;
 }
@@ -518,6 +428,8 @@ function AutoFitter({
 // verde = nuevo, ámbar = modificado, gris = sin cambios.
 function minimapNodeColor(n: Node): string {
   const d = n.data as MapNodeData;
+  // En modo dev los nodos sin cambios casi desaparecen del minimapa.
+  if (d.ghost) return 'rgba(107, 107, 107, 0.12)';
   if (d.isNew && (d.alert || d.activityNew || d.stat)) return 'rgba(69, 212, 131, 0.85)';
   if (d.activityNew) return 'rgba(69, 212, 131, 0.6)';
   if (d.alert || d.activity) return 'rgba(245, 166, 35, 0.85)';
@@ -534,37 +446,16 @@ export function NodeMap() {
   const alerts = useStore((s) => (focused ? s.fileAlerts[focused.id] : undefined));
   const expanded = useStore((s) => (focused ? s.expandedDirs[focused.id] : undefined));
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
-  const pinned = useStore((s) => (focused ? s.pinnedTerms[focused.id] : undefined));
-  const terminals = useStore((s) => (focused ? s.terminals[focused.id] : undefined));
+  const sidebar = useStore((s) => s.sidebar);
 
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [reloadSeq, setReloadSeq] = useState(0);
   // ¿El usuario tomó el control de la cámara (zoom/pan manual)? Si no, el mapa
   // se reencuadra solo cuando cambia la estructura, para no perderlo de vista.
   const userMovedRef = useRef(false);
-  const [bgCfg, setBgCfg] = useState<BgConfig>(loadBgConfig);
-  const [bgMenuOpen, setBgMenuOpen] = useState(false);
-  const bgMenuRef = useRef<HTMLDivElement>(null);
-
+  // Config del mapa (fondo + modo): controlada desde el StatusBar, en el store.
+  const bgCfg = useStore((s) => s.mapConfig);
   const bgVariant = BG_VARIANT_MAP[bgCfg.pattern];
-
-  const updateBg = (partial: Partial<BgConfig>) => {
-    const next = { ...bgCfg, ...partial };
-    setBgCfg(next);
-    saveBgConfig(next);
-  };
-
-  // Cierra el menú si el usuario hace clic fuera.
-  useEffect(() => {
-    if (!bgMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target as HTMLElement)) {
-        setBgMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [bgMenuOpen]);
 
   // ── Popover de cambios al hacer hover sobre un archivo modificado ──
   // Se ancla en coordenadas de pantalla (fuera del transform del zoom) y
@@ -612,11 +503,27 @@ export function NodeMap() {
     };
   }, [focused?.id, version, reloadSeq]);
 
+  const devMode = bgCfg.mode === 'dev';
+
   const { nodes, edges } = useMemo(() => {
     if (!tree || !focused) return { nodes: [], edges: [] };
     const gitByPath = new Map((snap?.files ?? []).map((f) => [f.path, f]));
-    return buildGraph(tree, focused.name, expanded ?? [], alerts ?? {}, gitByPath);
-  }, [tree, focused?.id, focused?.name, expanded, alerts, snap?.files]);
+    return buildGraph(tree, focused.name, expanded ?? [], alerts ?? {}, gitByPath, devMode);
+  }, [tree, focused?.id, focused?.name, expanded, alerts, snap?.files, devMode]);
+
+  // Modo dev: cada vez que cambian los archivos modificados (git o alerts en
+  // vivo), abrimos automáticamente sus carpetas ancestro para revelar el cambio.
+  // No se colapsa nada: la ruta queda abierta aunque el cambio desaparezca.
+  useEffect(() => {
+    if (!focused || !devMode) return;
+    const modified = [
+      ...Object.keys(alerts ?? {}),
+      ...(snap?.files ?? []).map((f) => f.path),
+    ];
+    if (modified.length === 0) return;
+    const dirs = ancestorDirs(modified);
+    if (dirs.size > 0) useStore.getState().expandDirs(focused.id, [...dirs]);
+  }, [focused?.id, devMode, alerts, snap?.files]);
 
   // Firma de la ESTRUCTURA (conjunto de ids de nodos): cambia al añadirse/
   // quitarse archivos o expandir/colapsar carpetas, pero NO ante meros cambios
@@ -629,44 +536,19 @@ export function NodeMap() {
     return String(h);
   }, [nodes]);
 
-  // Nodos de las terminales ancladas (independientes del árbol del repo).
-  const termNodes = useMemo<TermNode[]>(() => {
-    if (!focused || !pinned?.length) return [];
-    const titleFor = (termId: string) =>
-      termId === AGENT_TERM_ID
-        ? focused.cliCommand || 'Agent'
-        : (terminals?.find((t) => t.id === termId)?.title ?? termId);
-    return pinned.map((p: PinnedTerm) => ({
-      id: `term:${p.termId}`,
-      type: 'terminal',
-      position: { x: p.x, y: p.y },
-      width: p.w,
-      height: p.h,
-      style: { width: p.w, height: p.h },
-      draggable: true,
-      selectable: true,
-      data: { projectId: focused.id, termId: p.termId, title: titleFor(p.termId) },
-    }));
-  }, [focused?.id, focused?.cliCommand, pinned, terminals]);
-
-  // Aplica al store los cambios de posición/tamaño de los nodos terminal
-  // (los nodos del árbol son fijos y se ignoran).
-  const onNodesChange = (changes: NodeChange[]) => {
-    if (!focused) return;
-    for (const c of changes) {
-      if (c.type === 'position' && c.position && c.id.startsWith('term:')) {
-        useStore.getState().updatePinned(focused.id, c.id.slice(5), {
-          x: c.position.x,
-          y: c.position.y,
-        });
-      } else if (c.type === 'dimensions' && c.dimensions && c.id.startsWith('term:')) {
-        useStore.getState().updatePinned(focused.id, c.id.slice(5), {
-          w: c.dimensions.width,
-          h: c.dimensions.height,
-        });
-      }
-    }
-  };
+  // El sidebar va en overlay sobre el mapa: el encuadre (y los paneles HUD del
+  // lado izquierdo) dejan un hueco igual a su ancho para no quedar tapados.
+  // Colapsado, el hueco es el del riel fino.
+  const leftInset = sidebar.collapsed ? 46 : sidebar.width;
+  const fitPad = useMemo<FitPadding>(
+    () => ({
+      top: `${FIT_GAP}px`,
+      right: `${FIT_GAP}px`,
+      bottom: `${FIT_GAP}px`,
+      left: `${leftInset + FIT_GAP}px`,
+    }),
+    [leftInset],
+  );
 
   // Pan/zoom MANUAL del usuario (event != null): a partir de ahí dejamos de
   // reencuadrar solos. Los movimientos programáticos (fitView) traen event=null.
@@ -745,7 +627,7 @@ export function NodeMap() {
   return (
     <section
       ref={sectionRef}
-      className="glass-panel glass-panel--terminal gotham-enter relative h-full min-h-0 overflow-hidden"
+      className="gotham-enter relative h-full min-h-0 overflow-hidden"
     >
       {/* Fondo cuadrícula degradada: dashed lines con fade radial desde el centro */}
       {bgCfg.pattern === 'dashedgrid' && <div className="map-bg-dashed-grid" />}
@@ -757,17 +639,16 @@ export function NodeMap() {
       {bgCfg.pattern === 'zigzag' && <div className="map-bg-zigzag" />}
 
       <ReactFlow
-        nodes={[...nodes, ...termNodes]}
+        nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
         onNodeMouseEnter={onNodeMouseEnter}
         onNodeMouseLeave={hideHover}
         onMoveStart={handleMoveStart}
         colorMode="dark"
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: fitPad }}
         minZoom={0.1}
         maxZoom={2.5}
         nodesDraggable={false}
@@ -778,8 +659,7 @@ export function NodeMap() {
         onlyRenderVisibleElements
         style={{ background: 'transparent' }}
       >
-        <PinnedFocuser projectId={focused.id} />
-        <AutoFitter structureKey={structureKey} userMovedRef={userMovedRef} />
+        <AutoFitter structureKey={structureKey} userMovedRef={userMovedRef} padding={fitPad} />
         {bgVariant !== null && (
           <Background
             variant={bgVariant}
@@ -798,39 +678,9 @@ export function NodeMap() {
           maskColor="rgba(0, 0, 0, 0.65)"
         />
 
-        {/* HUD: menú de fondo + nombre del proyecto + recarga */}
-        <Panel position="top-left" className="flex items-center gap-2">
-          {/* Botón-menú que reemplaza la etiqueta "Mapa táctico" */}
-          <div ref={bgMenuRef} className="relative">
-            <button
-              className={`map-bg-trigger ${bgMenuOpen ? 'map-bg-trigger--open' : ''}`}
-              onClick={() => setBgMenuOpen((v) => !v)}
-              title="Change map background"
-            >
-              <IconSettings className="h-3.5 w-3.5" />
-              <span>Settings</span>
-            </button>
-
-            {bgMenuOpen && (
-              <div className="map-bg-menu">
-                <p className="map-bg-menu__section">Background</p>
-                <div className="map-bg-menu__grid">
-                  {BG_PATTERNS.map((p) => (
-                    <button
-                      key={p.id}
-                      className={`map-bg-option ${bgCfg.pattern === p.id ? 'map-bg-option--active' : ''}`}
-                      onClick={() => updateBg({ pattern: p.id })}
-                      title={p.label}
-                    >
-                      <span className="map-bg-option__icon">{p.icon}</span>
-                      <span>{p.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
+        {/* HUD: nombre del proyecto + recarga. El fondo y el modo se controlan
+            desde el StatusBar. */}
+        <Panel position="top-left" className="flex items-center gap-2" style={{ marginLeft: leftInset }}>
           <span className="hud-value rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">{focused.name}</span>
           <button
             className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
@@ -842,7 +692,7 @@ export function NodeMap() {
         </Panel>
 
         {/* HUD: estado del watcher */}
-        <Panel position="bottom-left">
+        <Panel position="bottom-left" style={{ marginLeft: leftInset }}>
           <span className="hud-label flex items-center gap-2 rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">
             {alertCount > 0 ? (
               <>

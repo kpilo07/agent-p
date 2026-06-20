@@ -38,6 +38,12 @@ export const IconClose = (p: IconProps) => (
   </Svg>
 );
 
+export const IconMaximize = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3" />
+  </Svg>
+);
+
 export const IconTicket = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 6 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-6Z" />

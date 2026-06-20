@@ -70,15 +70,6 @@ export interface ActivityEvent {
 /** ID de la terminal principal (la del agente de IA). */
 export const AGENT_TERM_ID = 'agent';
 
-/** Terminal anclada como nodo en el Mapa Táctico (posición/tamaño en coords de flow). */
-export interface PinnedTerm {
-  termId: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
 // ── Tipos para el explorador de archivos ─────────────────────────
 
 export interface FsEntry {

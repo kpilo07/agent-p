@@ -1,20 +1,14 @@
 // Barra de herramientas flotante: minimalista y transparente — solo iconos
-// fantasma a la derecha, centrados verticalmente. Panel de proyectos,
-// herramientas del proyecto en foco (review/nueva terminal) y el grupo de
-// consolas abiertas (agente + shells). El cambio de proyecto vive en el menú
-// de la StatusBar (esquina inferior derecha).
-import { apiClient as api } from '../../../infrastructure/api/ApiClient';
-import { AGENT_TERM_ID, useStore, type TermInfo } from '../../../infrastructure/store/store';
-import { createAndOpenTerminal } from '../../hooks/useTerminals';
+// fantasma a la derecha, centrados verticalmente. Panel de proyectos y
+// herramientas del proyecto en foco (búsqueda, review, historial, actividad,
+// tickets). Las consolas y agentes viven ahora en el sidebar izquierdo.
+import { useStore } from '../../../infrastructure/store/store';
 import {
   IconActivity,
   IconFolder,
   IconGitBranch,
   IconGitCommit,
-  IconPlus,
   IconSearch,
-  IconStop,
-  IconTerminal,
   IconTextSearch,
   IconTicket,
 } from '../ui/icons';
@@ -22,45 +16,13 @@ import {
 const ghostBtn =
   'relative flex items-center justify-center rounded-lg p-2 text-muted transition-all duration-200 hover:bg-[var(--hover-accent)] hover:text-gold';
 
-// Referencia estable para el selector (evita re-renders en bucle).
-const NO_TERMS: TermInfo[] = [];
-
 export function Toolbar() {
   const focusedId = useStore((s) => s.focusedId);
   const unread = useStore((s) => s.unread);
-  const focusedTermId = useStore((s) => s.focusedTermId);
   const snap = useStore((s) => (s.focusedId ? s.git[s.focusedId] : undefined));
-  const terminals = useStore((s) =>
-    s.focusedId ? (s.terminals[s.focusedId] ?? NO_TERMS) : NO_TERMS,
-  );
-  const pinned = useStore((s) => (s.focusedId ? s.pinnedTerms[s.focusedId] : undefined));
-  const isPinned = (termId: string) => pinned?.some((p) => p.termId === termId) ?? false;
 
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
   const dirty = (snap?.files?.length ?? 0) > 0;
-  const agentRunning = terminals.some((t) => t.id === AGENT_TERM_ID && t.running);
-
-  const interruptAgent = async () => {
-    if (!focusedId) return;
-    try {
-      await api.interruptAgent(focusedId);
-      useStore.getState().pushToast({
-        level: 'info',
-        title: 'Agent',
-        message: 'Ctrl-C sent to the agent',
-      });
-    } catch (err) {
-      useStore.getState().pushToast({
-        level: 'error',
-        title: 'Interrupt',
-        message: (err as Error).message,
-      });
-    }
-  };
-
-  // Clic en una consola del grupo: si está anclada al tablero, centra la cámara
-  // en su nodo; si no, la abre en su modal. (Lógica compartida en el store.)
-  const openTerm = (termId: string) => useStore.getState().openTerminal(termId);
 
   return (
     <div className="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-lg border border-[var(--border-primary)] bg-[rgba(0,0,0,0.8)] p-1.5">
@@ -140,60 +102,6 @@ export function Toolbar() {
           >
             <IconTicket className="h-4.5 w-4.5" />
           </button>
-
-          {/* Interrumpir al agente (Ctrl-C) — solo si está en ejecución */}
-          {agentRunning && (
-            <button
-              className={`${ghostBtn} hover:!text-alert-red`}
-              onClick={interruptAgent}
-              title="Interrupt agent · Ctrl-C"
-            >
-              <IconStop className="h-4.5 w-4.5" />
-            </button>
-          )}
-
-          {/* Nueva consola en el grupo */}
-          <button
-            className={ghostBtn}
-            onClick={() => void createAndOpenTerminal()}
-            title="New terminal · Ctrl+`"
-          >
-            <IconPlus className="h-4.5 w-4.5" />
-          </button>
-
-          {/* Consolas abiertas, agrupadas */}
-          {terminals.length > 0 && (
-            <>
-              <span className="my-1 h-px w-4 bg-[var(--border-primary)]" />
-              {terminals.map((t, i) => {
-                const pinnedHere = isPinned(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    className={`${ghostBtn} ${
-                      !pinnedHere && t.id === focusedTermId ? 'bg-[var(--hover-accent)] !text-gold' : ''
-                    } ${pinnedHere ? '!text-cyan' : ''}`}
-                    onClick={() => openTerm(t.id)}
-                    title={
-                      pinnedHere
-                        ? `${t.id === AGENT_TERM_ID ? 'Agent' : t.title} · pinned to board (click to locate)`
-                        : t.id === AGENT_TERM_ID
-                          ? `Agent · ${t.title}`
-                          : t.title
-                    }
-                  >
-                    <IconTerminal className="h-4.5 w-4.5" />
-                    <span className="absolute right-0.5 -bottom-0.5 font-mono text-[8px] font-bold text-secondary">
-                      {t.id === AGENT_TERM_ID ? 'A' : i}
-                    </span>
-                    {pinnedHere && (
-                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-cyan" />
-                    )}
-                  </button>
-                );
-              })}
-            </>
-          )}
         </>
       )}
     </div>

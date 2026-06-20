@@ -3,19 +3,20 @@ import { apiClient as api } from '../../infrastructure/api/ApiClient';
 import { useStore, AGENT_TERM_ID } from '../../infrastructure/store/store';
 import type { TermInfo } from '../../core/domain/project';
 
-// createAndOpenTerminal crea una consola en el proyecto en foco y la abre. El
-// backend la añade al grupo vía session_state; aquí la enfocamos de inmediato.
-// Compartida por la Toolbar (botón +) y por el atajo de teclado.
-export async function createAndOpenTerminal(): Promise<void> {
+// createAndOpenTerminal crea una consola (shell o agente) en el proyecto en
+// foco. El backend la añade al grupo vía session_state; aquí la enfocamos en el
+// sidebar (asegurando que esté expandido). Compartida por el Sidebar y el atajo.
+export async function createAndOpenTerminal(kind: 'shell' | 'agent' = 'shell'): Promise<void> {
   const { focusedId } = useStore.getState();
   if (!focusedId) return;
   try {
-    const t = await api.createTerminal(focusedId);
-    useStore.getState().openTerminal(t.id);
+    const t = await api.createTerminal(focusedId, { kind });
+    useStore.getState().focusTerm(t.id);
+    useStore.getState().setSidebar({ collapsed: false });
   } catch (err) {
     useStore.getState().pushToast({
       level: 'error',
-      title: 'Terminal',
+      title: kind === 'agent' ? 'Agent' : 'Terminal',
       message: (err as Error).message,
     });
   }

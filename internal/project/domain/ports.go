@@ -166,7 +166,10 @@ type ProjectUseCases interface {
 
 	// Terminales
 	ListTerminals(projectID string) []TermInfo
-	CreateTerminal(ctx context.Context, projectID, title string) (TermInfo, error)
+	// CreateTerminal abre un nuevo PTY en el proyecto. kind "agent" lanza el
+	// CLICommand del proyecto (un agente adicional); cualquier otro valor abre
+	// un shell.
+	CreateTerminal(ctx context.Context, projectID, title, kind string) (TermInfo, error)
 	CloseTerminal(ctx context.Context, projectID, termID string) error
 
 	// Git
