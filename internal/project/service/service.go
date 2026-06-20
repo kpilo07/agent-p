@@ -182,6 +182,49 @@ func (s *ProjectService) GitDiscard(ctx context.Context, projectID, file string)
 	return nil
 }
 
+// ── Checkpoints ──────────────────────────────────────────────────
+
+func (s *ProjectService) CreateCheckpoint(ctx context.Context, projectID, label string) (domain.Checkpoint, error) {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return domain.Checkpoint{}, err
+	}
+	cp, err := s.git.CreateCheckpoint(ctx, p.Path, label, false)
+	if err != nil {
+		return domain.Checkpoint{}, err
+	}
+	s.record(ctx, projectID, domain.ActivityCheckpoint, "Checkpoint creado: "+cp.Label)
+	return cp, nil
+}
+
+func (s *ProjectService) ListCheckpoints(ctx context.Context, projectID string) ([]domain.Checkpoint, error) {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	return s.git.ListCheckpoints(ctx, p.Path)
+}
+
+func (s *ProjectService) RestoreCheckpoint(ctx context.Context, projectID, id string) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.RestoreCheckpoint(ctx, p.Path, id); err != nil {
+		return err
+	}
+	s.record(ctx, projectID, domain.ActivityRestore, "Working tree restaurado a un checkpoint")
+	return nil
+}
+
+func (s *ProjectService) DeleteCheckpoint(ctx context.Context, projectID, id string) error {
+	p, err := s.projects.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	return s.git.DeleteCheckpoint(ctx, p.Path, id)
+}
+
 // EndDBSession cierra la sesión de BD del proyecto. Público para que el
 // composition root pueda invocarlo desde el callback OnSessionEnd.
 func (s *ProjectService) EndDBSession(ctx context.Context, projectID string) {
@@ -437,6 +480,12 @@ func (s *ProjectService) LaunchTicket(ctx context.Context, ticketID int64) (doma
 	p, err := s.projects.GetProject(ctx, t.ProjectID)
 	if err != nil {
 		return domain.Ticket{}, err
+	}
+
+	// Red de seguridad: checkpoint automático del estado previo a la tanda del
+	// agente. Si falla, no abortamos el lanzamiento (best-effort).
+	if cp, cerr := s.git.CreateCheckpoint(ctx, p.Path, "Antes de: "+ticketLabel(t), true); cerr == nil {
+		s.record(ctx, p.ID, domain.ActivityCheckpoint, "Checkpoint automático: "+cp.Label)
 	}
 
 	payload := []byte(pasteStart + buildTicketPrompt(t) + pasteEnd + "\r")

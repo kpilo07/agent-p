@@ -33,6 +33,8 @@ const (
 	ActivityDiscard      = "discard"       // cambios descartados desde la UI
 	ActivityInterrupt    = "interrupt"     // se envió Ctrl-C al agente
 	ActivityTicket       = "ticket"        // se lanzó un ticket al agente
+	ActivityCheckpoint   = "checkpoint"    // se creó un checkpoint del working tree
+	ActivityRestore      = "restore"       // se restauró el working tree a un checkpoint
 )
 
 // Estados del ciclo de vida de un Ticket.
@@ -107,6 +109,20 @@ type Commit struct {
 	Additions int        `json:"additions"`
 	Deletions int        `json:"deletions"`
 	Files     []FileStat `json:"files"`
+}
+
+// Checkpoint es un snapshot del working tree (archivos no ignorados) guardado
+// como commit bajo una ref oculta (refs/agent-p/checkpoints/*), sin tocar el
+// historial ni el HEAD. Permite revertir el trabajo del agente a ese estado.
+type Checkpoint struct {
+	ID        string `json:"id"`        // sufijo de la ref (identificador único)
+	Label     string `json:"label"`     // descripción legible
+	SHA       string `json:"sha"`       // commit del snapshot
+	CreatedAt int64  `json:"createdAt"` // unix ms
+	Auto      bool   `json:"auto"`      // creado automáticamente (vs manual)
+	Files     int    `json:"files"`     // archivos que difieren de su base
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
 }
 
 // GitBranches enumera las ramas del repo y marca la actual.

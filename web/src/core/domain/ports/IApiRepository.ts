@@ -2,6 +2,7 @@
 // La implementación concreta vive en infrastructure/api/ApiClient.ts.
 import type {
   ActivityEvent,
+  Checkpoint,
   Commit,
   CommitDiff,
   FileContent,
@@ -41,6 +42,10 @@ export interface IApiRepository {
   getFileDiff(id: string, path: string): Promise<FileDiff>;
   getCommits(id: string, limit?: number): Promise<Commit[]>;
   getCommitDiff(id: string, hash: string): Promise<CommitDiff>;
+  listCheckpoints(id: string): Promise<Checkpoint[]>;
+  createCheckpoint(id: string, label?: string): Promise<Checkpoint>;
+  restoreCheckpoint(id: string, cid: string): Promise<void>;
+  deleteCheckpoint(id: string, cid: string): Promise<void>;
   getBranches(id: string): Promise<GitBranches>;
   gitCheckout(id: string, branch: string, create?: boolean): Promise<void>;
   grep(id: string, query: string): Promise<GrepMatch[]>;

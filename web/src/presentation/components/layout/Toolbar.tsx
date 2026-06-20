@@ -5,6 +5,7 @@
 import { useStore } from '../../../infrastructure/store/store';
 import {
   IconActivity,
+  IconCheckpoint,
   IconFolder,
   IconGitBranch,
   IconGitCommit,
@@ -83,6 +84,15 @@ export function Toolbar() {
             title="Commit history"
           >
             <IconGitCommit className="h-4.5 w-4.5" />
+          </button>
+
+          {/* Checkpoints: snapshots para revertir el trabajo del agente */}
+          <button
+            className={ghostBtn}
+            onClick={() => useStore.getState().setCheckpointsOpen(true)}
+            title="Checkpoints · revertir trabajo del agente"
+          >
+            <IconCheckpoint className="h-4.5 w-4.5" />
           </button>
 
           {/* Timeline de actividad del proyecto */}

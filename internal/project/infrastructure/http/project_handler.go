@@ -402,6 +402,69 @@ func (s *Server) handleGitDiscard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ── Checkpoints ──────────────────────────────────────────────────
+
+func (s *Server) handleListCheckpoints(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	cps, err := s.uc.ListCheckpoints(r.Context(), p.ID)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	if cps == nil {
+		cps = []domain.Checkpoint{}
+	}
+	writeJSON(w, http.StatusOK, cps)
+}
+
+func (s *Server) handleCreateCheckpoint(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	var req struct {
+		Label string `json:"label"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	cp, err := s.uc.CreateCheckpoint(r.Context(), p.ID, req.Label)
+	if err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusCreated, cp)
+}
+
+func (s *Server) handleRestoreCheckpoint(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	if err := s.uc.RestoreCheckpoint(r.Context(), p.ID, r.PathValue("cid")); err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleDeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
+	p, err := s.uc.GetProject(r.Context(), r.PathValue("id"))
+	if err != nil {
+		s.failNotFound(w, err)
+		return
+	}
+	if err := s.uc.DeleteCheckpoint(r.Context(), p.ID, r.PathValue("cid")); err != nil {
+		s.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleProjectActivity(w http.ResponseWriter, r *http.Request) {
 	limit := 0
 	if v := r.URL.Query().Get("limit"); v != "" {

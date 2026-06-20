@@ -6,6 +6,7 @@ import { Toaster } from 'sileo';
 
 import { apiClient } from '../infrastructure/api/ApiClient';
 import { wsClient } from '../infrastructure/ws/WsClient';
+import { requestNotifyPermission } from '../infrastructure/ui/notify';
 import { projectService } from '../core/use-cases/ProjectService';
 import { selectFocusedProject, useStore } from '../infrastructure/store/store';
 // Estáticos: ligeros y presentes en la primera pintura (login / Home).
@@ -38,6 +39,9 @@ const TerminalModal = lazy(() =>
 const DiffModal = lazy(() => import('./components/shared/DiffModal').then((m) => ({ default: m.DiffModal })));
 const CommitHistoryModal = lazy(() =>
   import('./components/shared/CommitHistoryModal').then((m) => ({ default: m.CommitHistoryModal })),
+);
+const CheckpointsModal = lazy(() =>
+  import('./components/shared/CheckpointsModal').then((m) => ({ default: m.CheckpointsModal })),
 );
 const ActivityModal = lazy(() =>
   import('./components/shared/ActivityModal').then((m) => ({ default: m.ActivityModal })),
@@ -142,6 +146,7 @@ function MainApp() {
   const focused = useStore(selectFocusedProject);
   const diffOpen = useStore((s) => s.diffModalOpen);
   const commitHistoryOpen = useStore((s) => s.commitHistoryOpen);
+  const checkpointsOpen = useStore((s) => s.checkpointsOpen);
   const activityOpen = useStore((s) => s.activityModalOpen);
   const ticketsOpen = useStore((s) => s.ticketsModalOpen);
   const projectsOpen = useStore((s) => s.projectsModalOpen);
@@ -154,6 +159,7 @@ function MainApp() {
 
   useEffect(() => {
     wsClient.connect();
+    requestNotifyPermission();
     apiClient
       .listProjects()
       .then((projects) => useStore.getState().setProjects(projects))
@@ -217,6 +223,7 @@ function MainApp() {
         {projectsOpen && <ProjectsModal />}
         {diffOpen && <DiffModal />}
         {commitHistoryOpen && focused && <CommitHistoryModal />}
+        {checkpointsOpen && focused && <CheckpointsModal />}
         {activityOpen && focused && <ActivityModal />}
         {ticketsOpen && focused && <TicketModal />}
         {terminalOpen && focused && <TerminalModal />}

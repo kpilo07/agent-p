@@ -5,11 +5,11 @@ import { useState } from 'react';
 
 import { apiClient } from '../../../infrastructure/api/ApiClient';
 import { projectService } from '../../../core/use-cases/ProjectService';
-import { selectFocusedProject, useStore } from '../../../infrastructure/store/store';
+import { AGENT_TERM_ID, selectFocusedProject, useStore } from '../../../infrastructure/store/store';
 import { useGit } from '../../hooks/useGit';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { SyncControl } from '../shared/SyncControl';
-import { IconBell, IconChevronDown, IconLogo, IconLogout } from '../ui/icons';
+import { IconBell, IconChevronDown, IconLogo, IconLogout, IconRefresh } from '../ui/icons';
 import { BG_PATTERNS } from './mapConfig';
 
 const WS_STATUS_STYLE = {
@@ -66,6 +66,7 @@ export function StatusBar() {
             FOCUS <span className="hud-value truncate">{focused.name}</span>
           </span>
         )}
+        {focused && <AgentChip projectId={focused.id} />}
         {focused && branch && <BranchSwitcher projectId={focused.id} current={branch} />}
         {focused && branch && git && (
           <SyncControl
@@ -75,6 +76,16 @@ export function StatusBar() {
             hasUpstream={git.hasUpstream}
           />
         )}
+        {focused && (
+          <button
+            className="flex shrink-0 items-center text-muted transition-colors hover:text-gold"
+            onClick={() => useStore.getState().reloadMap()}
+            title="Reload tree"
+          >
+            <IconRefresh className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {focused && <WatcherStatus projectId={focused.id} />}
       </div>
 
       <div className="flex shrink-0 items-center gap-4">
@@ -227,5 +238,115 @@ export function StatusBar() {
         )}
       </div>
     </footer>
+  );
+}
+
+// Estado del agente principal del proyecto en foco. Clic → abre el sidebar y
+// enfoca el agente (lo que limpia su aviso de atención).
+function AgentChip({ projectId }: { projectId: string }) {
+  const state = useStore((s) => s.agentState[projectId]?.[AGENT_TERM_ID]);
+  const attention = useStore((s) => !!s.agentAttention[projectId]?.[AGENT_TERM_ID]);
+  if (!state && !attention) return null;
+
+  const open = () => {
+    useStore.getState().setSidebar({ collapsed: false });
+    useStore.getState().focusTerm(AGENT_TERM_ID);
+  };
+
+  let cls = '';
+  let label = 'idle';
+  if (attention) {
+    cls = 'notification-pulse--gold';
+    label = 'necesita atención';
+  } else if (state === 'working') {
+    cls = 'notification-pulse--green';
+    label = 'working';
+  } else if (state === 'waiting') {
+    cls = 'notification-pulse--gold';
+    label = 'waiting';
+  }
+
+  return (
+    <button
+      className={`flex shrink-0 items-center gap-1.5 transition-colors hover:text-gold ${
+        attention ? 'text-[var(--alert-orange)]' : 'text-muted'
+      }`}
+      onClick={open}
+      title="Agente · clic para abrir"
+    >
+      {cls ? (
+        <span className={`notification-pulse ${cls}`} />
+      ) : (
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] opacity-60" />
+      )}
+      <span className={`hud-label ${attention ? '!text-[var(--alert-orange)]' : ''}`}>{label}</span>
+    </button>
+  );
+}
+
+// Estado del watcher del proyecto en foco: archivos nuevos/modificados en vivo
+// (fs_change) o sin commitear (git), o working tree limpio. Antes vivía en el
+// tablero (Mapa Táctico); ahora aquí, en el StatusBar.
+function WatcherStatus({ projectId }: { projectId: string }) {
+  const alerts = useStore((s) => s.fileAlerts[projectId]);
+  const snap = useStore((s) => s.git[projectId]);
+
+  const alertEntries = Object.entries(alerts ?? {});
+  const alertNewCount = alertEntries.filter(([, v]) => v.op === 'create' || v.op === 'rename').length;
+  const alertModCount = alertEntries.length - alertNewCount;
+  const alertCount = alertEntries.length;
+
+  const gitFiles = snap?.files ?? [];
+  const newFileCount = gitFiles.filter((f) => f.status?.includes('?') || f.status === 'A').length;
+  const dirtyCount = gitFiles.length;
+  const modCount = dirtyCount - newFileCount;
+
+  return (
+    <span className="hud-label flex min-w-0 items-center gap-2 truncate">
+      {alertCount > 0 ? (
+        <>
+          {alertNewCount > 0 && (
+            <>
+              <span className="notification-pulse notification-pulse--green" />
+              {alertNewCount} new
+            </>
+          )}
+          {alertNewCount > 0 && alertModCount > 0 && <span className="text-[var(--border-active)]">·</span>}
+          {alertModCount > 0 && (
+            <>
+              <span className="notification-pulse notification-pulse--gold" />
+              {alertModCount} changing
+            </>
+          )}
+        </>
+      ) : dirtyCount > 0 ? (
+        <>
+          {newFileCount > 0 && (
+            <>
+              <span className="notification-pulse notification-pulse--green" />
+              {newFileCount} new
+            </>
+          )}
+          {newFileCount > 0 && modCount > 0 && <span className="text-[var(--border-active)]">·</span>}
+          {modCount > 0 && (
+            <>
+              <span className="notification-pulse notification-pulse--gold" />
+              {modCount} modified
+            </>
+          )}
+          {newFileCount === 0 && modCount === 0 && (
+            <>
+              <span className="notification-pulse notification-pulse--gold" />
+              {dirtyCount} uncommitted
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <span className="notification-pulse notification-pulse--green" />
+          Working tree clean · watching live
+        </>
+      )}
+    </span>
   );
 }

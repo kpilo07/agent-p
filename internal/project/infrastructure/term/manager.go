@@ -22,6 +22,16 @@ import (
 
 const replayLimit = 256 * 1024
 
+// Detección de estado del agente a partir del flujo del PTY.
+const (
+	stateWorking   = "working"
+	stateIdle      = "idle"
+	stateWaiting   = "waiting"
+	quietThreshold = 1200 * time.Millisecond // sin output → se considera "settled"
+	monitorTick    = 400 * time.Millisecond
+	tailCap        = 2048 // últimos bytes para detectar prompts de input
+)
+
 type session struct {
 	projectID string
 	termID    string
@@ -29,9 +39,13 @@ type session struct {
 	seq       int
 	cmd       *exec.Cmd
 	ptmx      *os.File
+	isAgent   bool // corre un CLI de agente (no un shell): se monitorea su estado
 
-	mu  sync.Mutex
-	buf []byte
+	mu         sync.Mutex
+	buf        []byte
+	tail       []byte    // ventana final del output (para detectar prompts)
+	lastOutput time.Time // momento del último byte emitido
+	state      string    // estado detectado actual (working|idle|waiting); "" = desconocido
 }
 
 func (s *session) appendOutput(p []byte) {
@@ -40,6 +54,11 @@ func (s *session) appendOutput(p []byte) {
 	s.buf = append(s.buf, p...)
 	if len(s.buf) > replayLimit {
 		s.buf = append([]byte(nil), s.buf[len(s.buf)-replayLimit/2:]...)
+	}
+	s.lastOutput = time.Now()
+	s.tail = append(s.tail, p...)
+	if len(s.tail) > tailCap {
+		s.tail = append([]byte(nil), s.tail[len(s.tail)-tailCap:]...)
 	}
 }
 
@@ -63,7 +82,70 @@ type Manager struct {
 
 // New crea un Manager.
 func New(log *slog.Logger, h *hub.Hub) *Manager {
-	return &Manager{log: log, hub: h, sessions: make(map[string]*session)}
+	m := &Manager{log: log, hub: h, sessions: make(map[string]*session)}
+	go m.monitorStates()
+	return m
+}
+
+// monitorStates vigila los agentes y emite agent_state cuando su estado cambia:
+// "working" mientras producen output, y "idle"/"waiting" tras quedarse en
+// silencio (settled → es tu turno). Una sola goroutine para todos los agentes.
+func (m *Manager) monitorStates() {
+	ticker := time.NewTicker(monitorTick)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		m.mu.Lock()
+		agents := make([]*session, 0, len(m.sessions))
+		for _, s := range m.sessions {
+			if s.isAgent {
+				agents = append(agents, s)
+			}
+		}
+		m.mu.Unlock()
+
+		for _, s := range agents {
+			s.mu.Lock()
+			desired := stateWorking
+			if now.Sub(s.lastOutput) >= quietThreshold {
+				if looksWaiting(s.tail) {
+					desired = stateWaiting
+				} else {
+					desired = stateIdle
+				}
+			}
+			changed := desired != s.state
+			if changed {
+				s.state = desired
+			}
+			pid, tid := s.projectID, s.termID
+			s.mu.Unlock()
+
+			if changed {
+				m.hub.BroadcastProjectEvent(pid, hub.Events.AgentState(pid, tid, desired))
+			}
+		}
+	}
+}
+
+// looksWaiting heurística conservadora: ¿el final del output parece un prompt
+// que pide confirmación del usuario? (sí/no, continuar, etc.).
+func looksWaiting(tail []byte) bool {
+	t := strings.ToLower(string(tail))
+	if len(t) > 240 {
+		t = t[len(t)-240:] // solo la cola visible
+	}
+	needles := []string{
+		"(y/n)", "[y/n]", "(yes/no)", "y/n)", "[y/n/a]",
+		"? (y", "press enter", "continue?", "proceed?", "overwrite?",
+		"do you want", "are you sure", "confirm",
+	}
+	for _, n := range needles {
+		if strings.Contains(t, n) {
+			return true
+		}
+	}
+	return false
 }
 
 func sessionKey(projectID, termID string) string { return projectID + "\x00" + termID }
@@ -108,6 +190,10 @@ func (m *Manager) Start(projectID, termID, title, dir, cliCommand string) error 
 	sess := &session{
 		projectID: projectID, termID: termID, title: title,
 		seq: m.seq, cmd: cmd, ptmx: ptmx,
+		// Un agente corre un CLI (cliCommand != ""); un shell no. Solo los
+		// agentes se monitorean para el estado/atención.
+		isAgent:    cliCommand != "",
+		lastOutput: time.Now(),
 	}
 	m.sessions[sessionKey(projectID, termID)] = sess
 	m.hub.BroadcastGlobalEvent(hub.Events.SessionState(projectID, termID, true, title))

@@ -116,6 +116,19 @@ export interface CommitDiff {
   diff: string;
 }
 
+/** Snapshot del working tree para revertir el trabajo del agente
+ *  (espejo de domain.Checkpoint en Go). */
+export interface Checkpoint {
+  id: string;
+  label: string;
+  sha: string;
+  createdAt: number; // unix ms
+  auto: boolean;
+  files: number;
+  additions: number;
+  deletions: number;
+}
+
 /** Ramas del repo y la actual (espejo de domain.GitBranches en Go). */
 export interface GitBranches {
   current: string;

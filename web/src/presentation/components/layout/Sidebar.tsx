@@ -13,6 +13,7 @@ import {
   AGENT_TERM_ID,
   selectFocusedProject,
   useStore,
+  type AgentState,
   type TermInfo,
 } from '../../../infrastructure/store/store';
 import { createAndOpenTerminal } from '../../hooks/useTerminals';
@@ -46,6 +47,9 @@ export function Sidebar() {
   const focusedTermId = useStore((s) => s.focusedTermId);
   const modalOpen = useStore((s) => s.terminalModalOpen);
   const sidebar = useStore((s) => s.sidebar);
+  const hasAttention = useStore((s) =>
+    focused ? Object.values(s.agentAttention[focused.id] ?? {}).some(Boolean) : false,
+  );
 
   const panes = orderPanes(terminals);
   const panesKey = panes.map((p) => p.id).join('|');
@@ -72,13 +76,16 @@ export function Sidebar() {
   // ── Colapsado: riel fino con el botón de expandir y accesos rápidos ──
   if (sidebar.collapsed) {
     return (
-      <aside className="sidebar-rail">
+      <aside className={`sidebar-rail ${hasAttention ? 'sidebar-rail--attention' : ''}`}>
         <button
-          className="sidebar-icon-btn"
+          className="sidebar-icon-btn relative"
           onClick={() => useStore.getState().setSidebar({ collapsed: false })}
-          title="Expand terminals"
+          title={hasAttention ? 'Un agente necesita atención' : 'Expand terminals'}
         >
           <IconChevronsRight className="h-4 w-4" />
+          {hasAttention && (
+            <span className="notification-pulse notification-pulse--gold absolute -top-0.5 -right-0.5" />
+          )}
         </button>
         <span className="my-1 h-px w-5 bg-[var(--border-primary)]" />
         <button
@@ -236,6 +243,8 @@ function TermPane({
 }) {
   const isMainAgent = term.id === AGENT_TERM_ID;
   const title = isMainAgent ? cliCommand || 'Agent' : term.title;
+  const state = useStore((s) => s.agentState[projectId]?.[term.id]);
+  const attention = useStore((s) => !!s.agentAttention[projectId]?.[term.id]);
 
   const focus = () => useStore.getState().focusTerm(term.id);
 
@@ -262,7 +271,11 @@ function TermPane({
   };
 
   return (
-    <div className={`sidebar-pane__inner ${active ? 'sidebar-pane__inner--active' : ''}`}>
+    <div
+      className={`sidebar-pane__inner ${active ? 'sidebar-pane__inner--active' : ''} ${
+        attention ? 'sidebar-pane__inner--attention' : ''
+      }`}
+    >
       <header className="sidebar-pane__header" onClick={focus}>
         {isMainAgent ? (
           <AgentLogo size={14} className="shrink-0" />
@@ -270,6 +283,7 @@ function TermPane({
           <IconTerminal className="h-3.5 w-3.5 shrink-0 text-gold-dim" />
         )}
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-secondary">{title}</span>
+        <AgentStateBadge state={state} attention={attention} />
         <button className="sidebar-pane__btn" onClick={(e) => { e.stopPropagation(); interrupt(); }} title="Interrupt · Ctrl-C">
           <IconStop className="h-3 w-3" />
         </button>
@@ -301,5 +315,40 @@ function TermPane({
         )}
       </div>
     </div>
+  );
+}
+
+// Indicador de estado del agente en la cabecera del panel.
+function AgentStateBadge({ state, attention }: { state?: AgentState; attention: boolean }) {
+  if (attention) {
+    return (
+      <span className="flex shrink-0 items-center gap-1.5 text-[var(--alert-orange)]">
+        <span className="notification-pulse notification-pulse--gold" />
+        <span className="hud-label !text-[var(--alert-orange)]">necesita atención</span>
+      </span>
+    );
+  }
+  if (!state) return null;
+  if (state === 'working') {
+    return (
+      <span className="flex shrink-0 items-center gap-1.5">
+        <span className="notification-pulse notification-pulse--green" />
+        <span className="hud-label">working</span>
+      </span>
+    );
+  }
+  if (state === 'waiting') {
+    return (
+      <span className="flex shrink-0 items-center gap-1.5">
+        <span className="notification-pulse notification-pulse--gold" />
+        <span className="hud-label">waiting</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 opacity-60">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--text-muted)]" />
+      <span className="hud-label">idle</span>
+    </span>
   );
 }

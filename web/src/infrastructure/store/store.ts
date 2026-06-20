@@ -7,6 +7,7 @@ import { create } from 'zustand';
 
 import type {
   ActivityEvent,
+  Checkpoint,
   Commit,
   GitBranches,
   GitSnapshot,
@@ -18,6 +19,10 @@ import type {
 import { AGENT_TERM_ID } from '../../core/domain/project';
 import type { Toast, ToastLevel, WsStatus, ServerEvent } from '../../core/domain/events';
 import { storageService } from '../storage/StorageService';
+import { notify } from '../ui/notify';
+
+/** Estado detectado de un agente (espejo del backend). */
+export type AgentState = 'working' | 'idle' | 'waiting';
 
 // Re-exportamos los tipos del dominio para que los componentes tengan un
 // punto de importación estable (se puede cambiar la fuente sin tocar imports).
@@ -25,6 +30,7 @@ export type {
   Project,
   GitSnapshot,
   Commit,
+  Checkpoint,
   GitBranches,
   TermInfo,
   FileStat,
@@ -108,10 +114,15 @@ interface AppState {
   projectsModalOpen: boolean;
   diffModalOpen: boolean;
   commitHistoryOpen: boolean;
+  checkpointsOpen: boolean;
   activityModalOpen: boolean;
   ticketsModalOpen: boolean;
   terminals: Record<string, TermInfo[]>;
   focusedTermId: string;
+  /** Estado detectado de cada agente: projectId → termId → estado. */
+  agentState: Record<string, Record<string, AgentState>>;
+  /** Agentes que "necesitan atención" (settled sin que el usuario los viera). */
+  agentAttention: Record<string, Record<string, boolean>>;
   sidebar: SidebarState;
   expandedDirs: Record<string, string[]>;
   fileAlerts: Record<string, Record<string, { stamp: number; op: string }>>;
@@ -121,6 +132,8 @@ interface AppState {
   searchOpen: boolean;
   contentSearchOpen: boolean;
   mapConfig: MapConfig;
+  /** Señal para forzar la recarga del árbol del mapa (botón reload del StatusBar). */
+  mapReloadSeq: number;
 
   setProjects: (projects: Project[]) => void;
   upsertProject: (project: Project) => void;
@@ -133,10 +146,12 @@ interface AppState {
   setProjectsModalOpen: (open: boolean) => void;
   setDiffModalOpen: (open: boolean) => void;
   setCommitHistoryOpen: (open: boolean) => void;
+  setCheckpointsOpen: (open: boolean) => void;
   setActivityModalOpen: (open: boolean) => void;
   setTicketsModalOpen: (open: boolean) => void;
   setTerminals: (projectId: string, terms: TermInfo[]) => void;
   focusTerm: (termId: string) => void;
+  clearAttention: (projectId: string, termId: string) => void;
   setSidebar: (partial: Partial<SidebarState>) => void;
   toggleDir: (projectId: string, path: string) => void;
   expandDirs: (projectId: string, paths: string[]) => void;
@@ -146,6 +161,7 @@ interface AppState {
   setSearchOpen: (open: boolean) => void;
   setContentSearchOpen: (open: boolean) => void;
   setMapConfig: (partial: Partial<MapConfig>) => void;
+  reloadMap: () => void;
   pushToast: (toast: Toast) => void;
   handleServerEvent: (evt: ServerEvent) => void;
 }
@@ -162,6 +178,18 @@ const SILEO_BY_LEVEL: Record<ToastLevel, (opts: SileoOpts) => string> = {
 
 const FILE_ALERT_TTL_MS = 15_000;
 
+// Quita el aviso de atención de (projectId, termId). Devuelve el nuevo mapa o
+// null si no había nada que limpiar (para evitar re-renders innecesarios).
+function clearAtt(
+  map: Record<string, Record<string, boolean>>,
+  projectId: string,
+  termId: string,
+): Record<string, Record<string, boolean>> | null {
+  if (!map[projectId]?.[termId]) return null;
+  const { [termId]: _omit, ...rest } = map[projectId];
+  return { ...map, [projectId]: rest };
+}
+
 // ── Store ─────────────────────────────────────────────────────────
 
 export const useStore = create<AppState>((set, get) => ({
@@ -176,10 +204,13 @@ export const useStore = create<AppState>((set, get) => ({
   projectsModalOpen: false,
   diffModalOpen: false,
   commitHistoryOpen: false,
+  checkpointsOpen: false,
   activityModalOpen: false,
   ticketsModalOpen: false,
   terminals: {},
   focusedTermId: AGENT_TERM_ID,
+  agentState: {},
+  agentAttention: {},
   sidebar: loadSidebar(),
   expandedDirs: {},
   fileAlerts: {},
@@ -189,6 +220,7 @@ export const useStore = create<AppState>((set, get) => ({
   searchOpen: false,
   contentSearchOpen: false,
   mapConfig: loadMapConfig(),
+  mapReloadSeq: 0,
 
   setProjects: (projects) =>
     set((s) => ({
@@ -249,6 +281,7 @@ export const useStore = create<AppState>((set, get) => ({
   setDiffModalOpen: (diffModalOpen) => set({ diffModalOpen }),
 
   setCommitHistoryOpen: (commitHistoryOpen) => set({ commitHistoryOpen }),
+  setCheckpointsOpen: (checkpointsOpen) => set({ checkpointsOpen }),
 
   setActivityModalOpen: (activityModalOpen) => set({ activityModalOpen }),
 
@@ -257,7 +290,19 @@ export const useStore = create<AppState>((set, get) => ({
   setTerminals: (projectId, terms) =>
     set((s) => ({ terminals: { ...s.terminals, [projectId]: terms } })),
 
-  focusTerm: (focusedTermId) => set({ focusedTermId }),
+  // Enfocar una terminal la marca como "vista": limpia su aviso de atención.
+  focusTerm: (focusedTermId) =>
+    set((s) => {
+      const pid = s.focusedId;
+      const fix = pid ? clearAtt(s.agentAttention, pid, focusedTermId) : null;
+      return fix ? { focusedTermId, agentAttention: fix } : { focusedTermId };
+    }),
+
+  clearAttention: (projectId, termId) =>
+    set((s) => {
+      const fix = clearAtt(s.agentAttention, projectId, termId);
+      return fix ? { agentAttention: fix } : s;
+    }),
 
   setSidebar: (partial) =>
     set((s) => {
@@ -309,6 +354,8 @@ export const useStore = create<AppState>((set, get) => ({
       } catch {}
       return { mapConfig: next };
     }),
+
+  reloadMap: () => set((s) => ({ mapReloadSeq: s.mapReloadSeq + 1 })),
 
   pushToast: ({ level, title, message, projectId }) => {
     const fn = SILEO_BY_LEVEL[level];
@@ -404,13 +451,70 @@ export const useStore = create<AppState>((set, get) => ({
             !running && s.focusedId === projectId && s.focusedTermId === termId
               ? { focusedTermId: AGENT_TERM_ID }
               : {};
-          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix };
+          // Al terminar una sesión, olvidamos su estado y aviso de atención.
+          let stateFix = {};
+          if (!running) {
+            const att = clearAtt(s.agentAttention, projectId, termId);
+            const st = s.agentState[projectId];
+            if (st?.[termId] !== undefined) {
+              const { [termId]: _o, ...restSt } = st;
+              stateFix = { agentState: { ...s.agentState, [projectId]: restSt } };
+            }
+            if (att) stateFix = { ...stateFix, agentAttention: att };
+          }
+          return { terminals: { ...s.terminals, [projectId]: next }, ...focusFix, ...stateFix };
         });
 
         if (termId === AGENT_TERM_ID) {
           get().markActive(projectId, running);
           if (!running && isBackground) {
             set((s) => ({ unread: { ...s.unread, [projectId]: (s.unread[projectId] ?? 0) + 1 } }));
+          }
+        }
+        break;
+      }
+
+      case 'agent_state': {
+        if (!projectId) return;
+        const termId = evt.termId ?? AGENT_TERM_ID;
+        const { state } = evt.payload as { state: AgentState };
+        const s = get();
+        const prev = s.agentState[projectId]?.[termId];
+        // "Settled": pasó de trabajar a inactivo/esperando → es tu turno.
+        const settled = prev === 'working' && (state === 'idle' || state === 'waiting');
+        const watching =
+          s.focusedId === projectId &&
+          s.focusedTermId === termId &&
+          !s.sidebar.collapsed &&
+          typeof document !== 'undefined' &&
+          !document.hidden;
+        const needAtt = settled && !watching;
+
+        set((st) => {
+          const agentState = {
+            ...st.agentState,
+            [projectId]: { ...st.agentState[projectId], [termId]: state },
+          };
+          if (!needAtt) return { agentState };
+          return {
+            agentState,
+            agentAttention: {
+              ...st.agentAttention,
+              [projectId]: { ...st.agentAttention[projectId], [termId]: true },
+            },
+          };
+        });
+
+        if (needAtt) {
+          const name = project?.name ?? 'agent-p';
+          const msg =
+            state === 'waiting' ? 'El agente espera tu confirmación' : 'El agente terminó su turno';
+          if (isBackground) {
+            set((st) => ({ unread: { ...st.unread, [projectId]: (st.unread[projectId] ?? 0) + 1 } }));
+            get().pushToast({ projectId, level: 'session', title: name, message: msg });
+          }
+          if (isBackground || (typeof document !== 'undefined' && document.hidden)) {
+            notify(`${name} · necesita atención`, msg);
           }
         }
         break;

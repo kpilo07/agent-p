@@ -26,6 +26,7 @@ const (
 	EventNotification = "notification"
 	EventSessionState = "session_state"
 	EventActivity     = "activity"
+	EventAgentState   = "agent_state"
 )
 
 // Tipos de comandos entrantes (UI → backend).
@@ -79,6 +80,16 @@ func (EventFactory) SessionState(projectID, termID string, running bool, title s
 		ProjectID: projectID,
 		TermID:    termID,
 		Payload:   map[string]any{"running": running, "title": title},
+	}
+}
+
+// AgentState informa el estado detectado de un agente: working | idle | waiting.
+func (EventFactory) AgentState(projectID, termID, state string) Event {
+	return Event{
+		Type:      EventAgentState,
+		ProjectID: projectID,
+		TermID:    termID,
+		Payload:   map[string]any{"state": state},
 	}
 }
 

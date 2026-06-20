@@ -21,7 +21,8 @@ export interface ServerEvent {
     | 'fs_change'
     | 'notification'
     | 'session_state'
-    | 'activity';
+    | 'activity'
+    | 'agent_state';
   projectId?: string;
   termId?: string;
   payload?: unknown;

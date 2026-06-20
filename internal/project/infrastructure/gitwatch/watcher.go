@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -332,6 +333,178 @@ func (w *Watcher) Discard(ctx context.Context, path, file string) error {
 	return nil
 }
 
+// ── Checkpoints ──────────────────────────────────────────────────
+// Un checkpoint captura el working tree completo (archivos no ignorados) como
+// un commit bajo refs/agent-p/checkpoints/<id>, usando un índice temporal para
+// no tocar el índice ni el HEAD reales. Restaurar deja el working tree idéntico
+// al snapshot. Antes de restaurar se crea un checkpoint de seguridad, así el
+// propio revert es reversible.
+
+const checkpointRefPrefix = "refs/agent-p/checkpoints/"
+const maxCheckpoints = 50
+
+func (w *Watcher) CreateCheckpoint(ctx context.Context, path, label string, auto bool) (domain.Checkpoint, error) {
+	// Snapshot del working tree en un índice temporal (no toca el índice real).
+	tmpIdx := filepath.Join(os.TempDir(), "agentp-ckpt-idx-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	defer os.Remove(tmpIdx)
+	env := []string{"GIT_INDEX_FILE=" + tmpIdx}
+
+	if _, err := runGitEnv(ctx, path, env, "add", "-A"); err != nil {
+		return domain.Checkpoint{}, err
+	}
+	treeOut, err := runGitEnv(ctx, path, env, "write-tree")
+	if err != nil {
+		return domain.Checkpoint{}, err
+	}
+	tree := strings.TrimSpace(string(treeOut))
+
+	// commit-tree con el HEAD actual como padre (si existe).
+	subject := label
+	if subject == "" {
+		subject = "checkpoint"
+	}
+	autoVal := "false"
+	if auto {
+		autoVal = "true"
+	}
+	msg := subject + "\n\nCheckpoint-Auto: " + autoVal + "\n"
+	commitArgs := []string{"commit-tree", tree, "-m", msg}
+	if head, herr := runGit(ctx, path, "rev-parse", "HEAD"); herr == nil {
+		commitArgs = append(commitArgs, "-p", strings.TrimSpace(string(head)))
+	}
+	commitOut, err := runGit(ctx, path, commitArgs...)
+	if err != nil {
+		return domain.Checkpoint{}, err
+	}
+	sha := strings.TrimSpace(string(commitOut))
+
+	id := strconv.FormatInt(time.Now().UnixNano(), 10)
+	if _, err := runGit(ctx, path, "update-ref", checkpointRefPrefix+id, sha); err != nil {
+		return domain.Checkpoint{}, err
+	}
+
+	w.pruneCheckpoints(ctx, path)
+
+	cp := domain.Checkpoint{ID: id, Label: subject, SHA: sha, CreatedAt: time.Now().UnixMilli(), Auto: auto}
+	cp.Files, cp.Additions, cp.Deletions = checkpointStats(ctx, path, sha)
+	return cp, nil
+}
+
+func (w *Watcher) ListCheckpoints(ctx context.Context, path string) ([]domain.Checkpoint, error) {
+	const sep = "\x1f"
+	format := strings.Join([]string{
+		"%(refname)", "%(objectname)", "%(committerdate:unix)",
+		"%(contents:subject)", "%(trailers:key=Checkpoint-Auto,valueonly)",
+	}, sep)
+	out, err := runGit(ctx, path, "for-each-ref", "--sort=-committerdate", "--format="+format, checkpointRefPrefix)
+	if err != nil {
+		return nil, err
+	}
+	var cps []domain.Checkpoint
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		f := strings.Split(line, sep)
+		if len(f) < 5 {
+			continue
+		}
+		id := strings.TrimPrefix(f[0], checkpointRefPrefix)
+		ts, _ := strconv.ParseInt(strings.TrimSpace(f[2]), 10, 64)
+		cp := domain.Checkpoint{
+			ID:        id,
+			SHA:       f[1],
+			CreatedAt: ts * 1000,
+			Label:     strings.TrimSpace(f[3]),
+			Auto:      strings.TrimSpace(f[4]) == "true",
+		}
+		cp.Files, cp.Additions, cp.Deletions = checkpointStats(ctx, path, f[1])
+		cps = append(cps, cp)
+	}
+	return cps, nil
+}
+
+func (w *Watcher) RestoreCheckpoint(ctx context.Context, path, id string) error {
+	ref := checkpointRefPrefix + id
+	shaOut, err := runGit(ctx, path, "rev-parse", "--verify", ref)
+	if err != nil {
+		return err
+	}
+	sha := strings.TrimSpace(string(shaOut))
+
+	// Red de seguridad: snapshot del estado actual antes de pisarlo.
+	if _, err := w.CreateCheckpoint(ctx, path, "Antes de restaurar", true); err != nil {
+		return err
+	}
+
+	// Deja índice + working tree idénticos al snapshot, elimina los archivos
+	// creados después (untracked, respetando .gitignore) y vuelve a dejar los
+	// cambios sin estaderar (índice = HEAD) para que se vean como working tree.
+	if _, err := runGit(ctx, path, "read-tree", "-u", "--reset", sha); err != nil {
+		return err
+	}
+	if _, err := runGit(ctx, path, "clean", "-fd"); err != nil {
+		return err
+	}
+	if _, err := runGit(ctx, path, "reset", "--mixed", "HEAD"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w *Watcher) DeleteCheckpoint(ctx context.Context, path, id string) error {
+	_, err := runGit(ctx, path, "update-ref", "-d", checkpointRefPrefix+id)
+	return err
+}
+
+// pruneCheckpoints conserva solo los maxCheckpoints más recientes.
+func (w *Watcher) pruneCheckpoints(ctx context.Context, path string) {
+	out, err := runGit(ctx, path, "for-each-ref", "--sort=-committerdate", "--format=%(refname)", checkpointRefPrefix)
+	if err != nil {
+		return
+	}
+	refs := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for i, ref := range refs {
+		if i < maxCheckpoints || ref == "" {
+			continue
+		}
+		_, _ = runGit(ctx, path, "update-ref", "-d", ref)
+	}
+}
+
+// checkpointStats devuelve (archivos, +, -) del snapshot frente a su base
+// (primer padre, o árbol vacío si no tiene).
+func checkpointStats(ctx context.Context, path, sha string) (files, add, del int) {
+	base := sha + "^"
+	if _, err := runGit(ctx, path, "rev-parse", "--verify", sha+"^"); err != nil {
+		base = emptyTreeSHA // sin padre: comparar contra árbol vacío
+	}
+	out, err := runGit(ctx, path, "diff", "--numstat", base, sha)
+	if err != nil {
+		return 0, 0, 0
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		cols := strings.Fields(line)
+		if len(cols) < 2 {
+			continue
+		}
+		files++
+		if a, e := strconv.Atoi(cols[0]); e == nil {
+			add += a
+		}
+		if d, e := strconv.Atoi(cols[1]); e == nil {
+			del += d
+		}
+	}
+	return files, add, del
+}
+
+// emptyTreeSHA es el hash del árbol vacío de git (constante bien conocida).
+const emptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 func (w *Watcher) Take(ctx context.Context, path string) (*domain.GitSnapshot, error) {
 	diff, err := runGit(ctx, path, "diff", "HEAD")
 	if err != nil {
@@ -586,10 +759,19 @@ func parseNumstat(out []byte) map[string][2]int {
 }
 
 func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	return runGitEnv(ctx, dir, nil, args...)
+}
+
+// runGitEnv ejecuta git con variables de entorno extra (p. ej. GIT_INDEX_FILE
+// para snapshots con un índice temporal sin tocar el índice real).
+func runGitEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

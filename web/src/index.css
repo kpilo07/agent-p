@@ -1040,6 +1040,11 @@ html, body, #root {
 }
 /* Activo: acento fino a la izquierda, sin borde alrededor. */
 .sidebar-pane__inner--active { box-shadow: inset 2px 0 0 var(--cyan-primary); }
+/* Necesita atención: acento ámbar (gana sobre el activo) + tinte sutil. */
+.sidebar-pane__inner--attention {
+  box-shadow: inset 3px 0 0 var(--alert-orange);
+  background: color-mix(in srgb, var(--alert-orange) 7%, var(--bg-secondary));
+}
 
 .sidebar-pane__header {
   display: flex;
@@ -1126,6 +1131,10 @@ html, body, #root {
   border-right: 1px solid var(--border-primary);
   background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
   backdrop-filter: blur(10px);
+}
+.sidebar-rail--attention {
+  border-right-color: var(--alert-orange);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset -2px 0 0 var(--alert-orange);
 }
 .sidebar-rail__count {
   margin-top: 2px;

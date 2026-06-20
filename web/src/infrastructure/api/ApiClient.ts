@@ -3,6 +3,7 @@
 import type { AuthStatus, IApiRepository } from '../../core/domain/ports/IApiRepository';
 import type {
   ActivityEvent,
+  Checkpoint,
   Commit,
   CommitDiff,
   FileContent,
@@ -105,6 +106,25 @@ class ApiClient implements IApiRepository {
 
   getCommits(id: string, limit?: number): Promise<Commit[]> {
     return this.request(`/api/projects/${id}/commits${limit ? `?limit=${limit}` : ''}`);
+  }
+
+  listCheckpoints(id: string): Promise<Checkpoint[]> {
+    return this.request(`/api/projects/${id}/checkpoints`);
+  }
+
+  createCheckpoint(id: string, label?: string): Promise<Checkpoint> {
+    return this.request(`/api/projects/${id}/checkpoints`, {
+      method: 'POST',
+      body: JSON.stringify({ label: label ?? '' }),
+    });
+  }
+
+  restoreCheckpoint(id: string, cid: string): Promise<void> {
+    return this.request(`/api/projects/${id}/checkpoints/${cid}/restore`, { method: 'POST' });
+  }
+
+  deleteCheckpoint(id: string, cid: string): Promise<void> {
+    return this.request(`/api/projects/${id}/checkpoints/${cid}`, { method: 'DELETE' });
   }
 
   getCommitDiff(id: string, hash: string): Promise<CommitDiff> {

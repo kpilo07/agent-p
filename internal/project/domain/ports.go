@@ -80,6 +80,14 @@ type GitService interface {
 	Stash(ctx context.Context, path string) error
 	// Discard revierte el working tree. Si file == "" descarta todos los cambios.
 	Discard(ctx context.Context, path, file string) error
+
+	// Checkpoints: snapshots del working tree bajo refs ocultas, para revertir
+	// el trabajo del agente sin tocar el historial.
+	CreateCheckpoint(ctx context.Context, path, label string, auto bool) (Checkpoint, error)
+	ListCheckpoints(ctx context.Context, path string) ([]Checkpoint, error)
+	// RestoreCheckpoint deja el working tree idéntico al checkpoint indicado.
+	RestoreCheckpoint(ctx context.Context, path, id string) error
+	DeleteCheckpoint(ctx context.Context, path, id string) error
 }
 
 // ActivityRepository abstrae la persistencia del timeline de actividad.
@@ -150,6 +158,12 @@ type ProjectUseCases interface {
 	GitCommit(ctx context.Context, projectID, message string, files []string) error
 	GitStash(ctx context.Context, projectID string) error
 	GitDiscard(ctx context.Context, projectID, file string) error
+
+	// Checkpoints del trabajo del agente (snapshot/revert del working tree).
+	CreateCheckpoint(ctx context.Context, projectID, label string) (Checkpoint, error)
+	ListCheckpoints(ctx context.Context, projectID string) ([]Checkpoint, error)
+	RestoreCheckpoint(ctx context.Context, projectID, id string) error
+	DeleteCheckpoint(ctx context.Context, projectID, id string) error
 
 	// Timeline de actividad
 	ListActivity(ctx context.Context, projectID string, limit int) ([]ActivityEvent, error)

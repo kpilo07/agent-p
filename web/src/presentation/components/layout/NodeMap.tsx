@@ -15,7 +15,6 @@ import {
   Controls,
   Handle,
   MiniMap,
-  Panel,
   Position,
   ReactFlow,
   useReactFlow,
@@ -48,7 +47,6 @@ import {
   IconImage,
   IconFolder,
   IconFolderOpen,
-  IconRefresh,
 } from '../ui/icons';
 import { AgentLogo } from '../ui/AgentLogo';
 
@@ -206,9 +204,12 @@ function buildGraph(
         alertOp,
         isNew: !n.dir && isNew,
         isDeleted: !n.dir && isDeleted,
-        // Dirs: pulso verde si hay nuevos en el subárbol, naranja si solo modificados.
-        activity: isRoot ? hot.size > 0 : n.dir && hot.has(n.path) && !hotNew.has(n.path),
-        activityNew: isRoot ? newFilePaths.size > 0 : n.dir && hotNew.has(n.path),
+        // Dirs (y, en modo dev, también los archivos): pulso verde si hay nuevos
+        // en el subárbol/archivo, naranja si solo modificados. Así en dev el nodo
+        // del archivo modificado se anima de forma persistente (no solo durante el
+        // fs_change), reflejando los cambios en el árbol.
+        activity: isRoot ? hot.size > 0 : (n.dir || devMode) && hot.has(n.path) && !hotNew.has(n.path),
+        activityNew: isRoot ? newFilePaths.size > 0 : (n.dir || devMode) && hotNew.has(n.path),
         stat,
         ghost,
       },
@@ -447,9 +448,10 @@ export function NodeMap() {
   const expanded = useStore((s) => (focused ? s.expandedDirs[focused.id] : undefined));
   const snap = useStore((s) => (focused ? s.git[focused.id] : undefined));
   const sidebar = useStore((s) => s.sidebar);
+  // Recarga manual del árbol: el botón vive en el StatusBar y bombea esta señal.
+  const reloadSeq = useStore((s) => s.mapReloadSeq);
 
   const [tree, setTree] = useState<TreeNode | null>(null);
-  const [reloadSeq, setReloadSeq] = useState(0);
   // ¿El usuario tomó el control de la cámara (zoom/pan manual)? Si no, el mapa
   // se reencuadra solo cuando cambia la estructura, para no perderlo de vista.
   const userMovedRef = useRef(false);
@@ -558,15 +560,6 @@ export function NodeMap() {
   };
 
   if (!focused) return null;
-
-  const alertEntries = Object.entries(alerts ?? {});
-  const alertNewCount = alertEntries.filter(([, v]) => v.op === 'create' || v.op === 'rename').length;
-  const alertModCount = alertEntries.length - alertNewCount;
-  const alertCount = alertEntries.length;
-
-  const gitFiles = snap?.files ?? [];
-  const newFileCount = gitFiles.filter((f) => f.status?.includes('?') || f.status === 'A').length;
-  const dirtyCount = gitFiles.length;
 
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     if (node.type !== 'repo') return;
@@ -678,72 +671,6 @@ export function NodeMap() {
           maskColor="rgba(0, 0, 0, 0.65)"
         />
 
-        {/* HUD: nombre del proyecto + recarga. El fondo y el modo se controlan
-            desde el StatusBar. */}
-        <Panel position="top-left" className="flex items-center gap-2" style={{ marginLeft: leftInset }}>
-          <span className="hud-value rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">{focused.name}</span>
-          <button
-            className="btn-tactical btn-tactical--cyan flex items-center justify-center p-1.5"
-            onClick={() => setReloadSeq((n) => n + 1)}
-            title="Reload tree"
-          >
-            <IconRefresh className="h-3.5 w-3.5" />
-          </button>
-        </Panel>
-
-        {/* HUD: estado del watcher */}
-        <Panel position="bottom-left" style={{ marginLeft: leftInset }}>
-          <span className="hud-label flex items-center gap-2 rounded bg-[rgba(0,0,0,0.75)] px-2 py-1">
-            {alertCount > 0 ? (
-              <>
-                {alertNewCount > 0 && (
-                  <>
-                    <span className="notification-pulse notification-pulse--green" />
-                    {alertNewCount} new
-                  </>
-                )}
-                {alertNewCount > 0 && alertModCount > 0 && (
-                  <span className="text-[var(--border-active)]">·</span>
-                )}
-                {alertModCount > 0 && (
-                  <>
-                    <span className="notification-pulse notification-pulse--gold" />
-                    {alertModCount} changing
-                  </>
-                )}
-              </>
-            ) : dirtyCount > 0 ? (
-              <>
-                {newFileCount > 0 && (
-                  <>
-                    <span className="notification-pulse notification-pulse--green" />
-                    {newFileCount} new
-                  </>
-                )}
-                {newFileCount > 0 && dirtyCount - newFileCount > 0 && (
-                  <span className="text-[var(--border-active)]">·</span>
-                )}
-                {dirtyCount - newFileCount > 0 && (
-                  <>
-                    <span className="notification-pulse notification-pulse--gold" />
-                    {dirtyCount - newFileCount} modified
-                  </>
-                )}
-                {newFileCount === 0 && dirtyCount - newFileCount === 0 && (
-                  <>
-                    <span className="notification-pulse notification-pulse--gold" />
-                    {dirtyCount} uncommitted
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <span className="notification-pulse notification-pulse--green" />
-                Working tree clean · watching live
-              </>
-            )}
-          </span>
-        </Panel>
       </ReactFlow>
 
       {/* Popover de cambios: hover sobre un archivo modificado. Clic abre
